@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Make Google</title>
+
+<style>
+    .header{
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 15px;
+        margin-right: 20px;
+        margin-top: 20px;
+    }
+
+    .option-box {
+        padding: 8px 12px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 13px;
+    }
+
+    .option-box:hover {
+        text-decoration: underline;
+    }
+
+    .main{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        margin-top: 100px;
+    }
+    .google-logo {
+        margin-bottom: 20px;
+    }
+    .search-box {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .search-input {
+        width: 400px;
+        height: 40px;
+        border-radius: 24px;
+        border: 1px solid #dfe1e5;
+        padding: 0 20px;
+        font-size: 16px;
+        outline: none;
+    }
+
+    .search-btn {
+        height: 42px;
+        padding: 0 15px;
+        border: 1px solid #f8f9fa;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    
+</style>
+</head>
+<body>
+    <header class ="header">
+        <button class = "option-box">gmail</button>
+        <button class = "option-box"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS-jRrHlnY24i4UE_zBTiPixfmi0U5FIR74AhizbNxQLQ&s=10" width="24"></button>
+        <button class = "option-box">로그인</button>
+    </header>
+
+    <main class ="main">
+        <img class="google-logo" src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" width="240">
+        <div class="search-box">
+            <input type="text" class="search-input">
+            <button class="search-btn">
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrE44A42ElSRUenAJtB4iFyEP974JZ_H7fnrKEQGWJbw&s=10" width="20">
+            </button>
+        </div>
+</body>
+</html>

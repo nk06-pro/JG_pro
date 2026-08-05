@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>나만의 위인 만들기</title>
+    <style>
+        *{
+            background-color: rgb(233, 195, 149);
+        }
+        /* 필요한 CSS를 직접 작성해 보세요 */
+        .title{
+            display: flex;
+            flex-direction: column; /* 요소를 세로로 쌓습니다 */
+            align-items: center;    /* 가로 가운데 정렬 */
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .contain{
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .table {
+            border: none;
+            color: rgb(117, 102, 83);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 180px;       /* 버튼 상자의 가로폭을 딱 고정합니다 */
+            flex-shrink: 0;     /* 다른 상자 때문에 찌그러지거나 밀려나는 걸 방지합니다 */
+        }
+    </style>
+</head>
+<body>
+
+    <header class = "title">
+        <h1 style="color: rgb(59, 50, 38);">나만의 위인</h1>
+        <img src = "https://cdn.ppss.kr/news/photo/201712/144235_37462_2008.jpg" width="300">
+    </header>
+
+    <div class="contain">
+        <nav class = "table">
+            <!-- 목차 영역 -->
+             <button onclick="text1()">그는 누구인가?</button>
+             <button onclick="text2()">그는 왜 위인인가?</button>
+             <button onclick="text3()">그는 어떠한?</button>
+             <button onclick="text4()">마지막 한마디</button>
+        </nav>
+        
+        <main id="content-box">
+            <!-- 본문 영역 -->
+        </main>
+    </div>
+
+    <script>
+        function text1()
+        {
+            document.getElementById("content-box").innerHTML = "<p>그는 가족을 위해 항상 헌신하며 힘든일들도 마다하지 않았다. 그는 항상 피곤한 존재였음에도 자식들을 위해 미소지어보인다.</p>";
+        }
+
+        function text2()
+        {
+            document.getElementById("content-box").innerHTML = "<p>그는 아이들을,가족을 매우 소중히 여기지만 때로는 표현을 잘 하지 못해 갈등이 발생하기도 한다. 삶에 우선순위가 가족인 나머지 힘든 티도 많이 내지 못한다. 무너져선 안된다는 압박감이 다가온다</p>";
+        }
+
+        function text3()
+        {
+            document.getElementById("content-box").innerHTML = "<p>그럼에도 그는 버티고 나아가는 그 누구보다 강인한 인간이다</p>";
+        }
+
+        function text4()
+        {
+            document.getElementById("content-box").innerHTML = "<p>아버지 늘 감사하고 사랑합니다</p>";
+        }
+    </script>
+</body>
+</html>
