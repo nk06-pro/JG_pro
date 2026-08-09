@@ -12,17 +12,34 @@
     <!-- 타이틀용 픽셀 폰트 + 본문용 Jua -->
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Press+Start+2P&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="style.css">
+    <!-- Flask static 폴더 안의 style.css -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body>
+    <!-- 배경 장식: 별빛 + CRT 스캔라인 (움직임 최소화 환경에서는 자동으로 정지됨) -->
+    <div class="bg-stars" aria-hidden="true"></div>
+    <div class="bg-scanlines" aria-hidden="true"></div>
+
     <div class="wrap">
 
         <!-- 1. 타이틀 화면 -->
         <div id="title-screen">
             <div class="mytitle">
-                <h1>MULTI ARENA</h1>
-                <p>친구와 함께, 실시간으로 즐기는 미니게임</p>
+                <div class="mytitle-crt">
+                    <!-- 픽셀 아트 주사위 아이콘 (외부 이미지 없이 SVG로 직접 그림) -->
+                    <svg class="pixel-dice" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+                        <rect x="1" y="1" width="14" height="14" fill="#e43f5a" stroke="#ffffff" stroke-width="1"/>
+                        <rect x="3" y="3" width="2" height="2" fill="#ffe600"/>
+                        <rect x="11" y="3" width="2" height="2" fill="#ffe600"/>
+                        <rect x="7" y="7" width="2" height="2" fill="#ffe600"/>
+                        <rect x="3" y="11" width="2" height="2" fill="#ffe600"/>
+                        <rect x="11" y="11" width="2" height="2" fill="#ffe600"/>
+                    </svg>
+                    <h1>MULTI ARENA</h1>
+                    <p>친구와 함께, 실시간으로 즐기는 미니게임</p>
+                    <p class="insert-coin">PRESS START ▾</p>
+                </div>
             </div>
 
             <div class="menu-box">
@@ -49,8 +66,10 @@
         <!-- 2. 대기실 화면 (방 생성/참가 후) -->
         <div id="room-screen" style="display:none;">
             <div class="mytitle mytitle-small">
-                <h2 id="room-code-display">------</h2>
-                <p>방 코드를 공유하세요</p>
+                <div class="mytitle-crt">
+                    <h2 id="room-code-display">------</h2>
+                    <p>방 코드를 공유하세요</p>
+                </div>
             </div>
 
             <div class="menu-box text-center">
@@ -73,10 +92,10 @@
 
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <!-- Socket.io 클라이언트 -->
+    <!-- Socket.io 클라이언트 (Node.js/Render 백엔드에 접속) -->
     <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
-    <!-- 게임 로직 -->
-    <script src="script.js"></script>
+    <!-- Flask static 폴더 안의 script.js -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 
 </html>
