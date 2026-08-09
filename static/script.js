@@ -4,6 +4,8 @@ const SERVER_URL = "https://lobby-backend-ddu9.onrender.com/";
 const socket = io(SERVER_URL);
 let myCode = null;
 
+const EMOJIS = ["👍", "😂", "🔥", "❤️", "😮", "😢"];
+
 function showAlert(message) {
     $("#alert-box").text(message).show();
     setTimeout(() => $("#alert-box").hide(), 3000);
@@ -19,6 +21,7 @@ function createRoom() {
         }
         myCode = res.code;
         enterRoomScreen(res.code);
+        showWaiting();
     });
 }
 
@@ -39,6 +42,8 @@ function joinRoom() {
         enterRoomScreen(res.code);
         if (res.state && res.state.players.length === 2) {
             showConnected(res.state.players);
+        } else {
+            showWaiting();
         }
     });
 }
@@ -48,8 +53,12 @@ function enterRoomScreen(code) {
     $("#title-screen").hide();
     $("#room-screen").show();
     $("#room-code-display").text(code);
+}
+
+function showWaiting() {
     $("#waiting-area").show();
     $("#connected-area").hide();
+    $("#status-msg").text("상대방을 기다리는 중...");
 }
 
 function showConnected(players) {
@@ -59,6 +68,7 @@ function showConnected(players) {
     $("#player-list").html(chips);
 }
 
+// ✅ 방을 완전히 나갈 때만 호출 (상대가 나간 것과는 별개)
 function leaveRoom() {
     if (myCode) socket.emit("leaveRoom", { code: myCode });
     myCode = null;
@@ -68,14 +78,34 @@ function leaveRoom() {
     $("#join-area").hide();
 }
 
+// ---- 이모티콘 리액션 ----
+function sendEmoji(emoji) {
+    if (!myCode) return;
+    socket.emit("sendEmoji", { code: myCode, emoji });
+    spawnFloatingEmoji(emoji); // 내가 보낸 것도 바로 보이게
+}
+
+function spawnFloatingEmoji(emoji) {
+    const $el = $(`<span class="floating-emoji">${emoji}</span>`);
+    const left = 20 + Math.random() * 60; // 20~80% 사이 랜덤 위치
+    $el.css("left", left + "%");
+    $("#reaction-layer").append($el);
+    setTimeout(() => $el.remove(), 1600);
+}
+
 // ---- 서버 이벤트 수신 ----
 socket.on("gameStart", (state) => {
     showConnected(state.players);
 });
 
-socket.on("opponentLeft", () => {
-    showAlert("상대방이 방을 나갔습니다.");
-    leaveRoom();
+// ✅ 상대가 나가도 나는 방에 그대로 남고, 다시 대기 화면으로만 전환
+socket.on("opponentLeft", ({ state }) => {
+    showAlert("상대방이 방을 나갔습니다. 새로운 상대를 기다립니다...");
+    showWaiting();
+});
+
+socket.on("emojiReceived", ({ emoji }) => {
+    spawnFloatingEmoji(emoji);
 });
 
 socket.on("connect_error", () => {
@@ -88,4 +118,12 @@ $(function () {
     $("#btn-show-join").on("click", () => $("#join-area").slideToggle(150));
     $("#btn-join").on("click", joinRoom);
     $("#btn-leave").on("click", leaveRoom);
+
+    // 이모티콘 버튼 동적 생성
+    const $bar = $("#emoji-bar");
+    EMOJIS.forEach((e) => {
+        $(`<button type="button" class="emoji-btn">${e}</button>`)
+            .on("click", () => sendEmoji(e))
+            .appendTo($bar);
+    });
 });

@@ -28,7 +28,7 @@
             <div class="mytitle">
                 <div class="mytitle-crt">
                     <!-- 픽셀 아트 주사위 아이콘 (외부 이미지 없이 SVG로 직접 그림) -->
-                    <svg class="pixel-dice" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+                    <svg class="pixel-dice" width="40" height="40" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
                         <rect x="1" y="1" width="14" height="14" fill="#e43f5a" stroke="#ffffff" stroke-width="1"/>
                         <rect x="3" y="3" width="2" height="2" fill="#ffe600"/>
                         <rect x="11" y="3" width="2" height="2" fill="#ffe600"/>
@@ -85,7 +85,13 @@
                 </div>
 
                 <button id="btn-leave" class="btn btn-arcade-outline w-100 mt-3">로비로 나가기</button>
+
+                <!-- 이모티콘 리액션 바 (JS가 버튼을 동적으로 채워넣음) -->
+                <div id="emoji-bar" class="emoji-bar mt-3"></div>
             </div>
+
+            <!-- 떠오르는 이모티콘 리액션이 표시되는 레이어 -->
+            <div id="reaction-layer" class="reaction-layer"></div>
         </div>
 
     </div>

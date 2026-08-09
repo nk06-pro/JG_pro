@@ -62,6 +62,13 @@ io.on("connection", (socket) => {
     console.log(`방 참가: ${code}`);
   });
 
+  // 간단한 이모티콘 리액션 (게임 로직과 무관, 그냥 브로드캐스트)
+  socket.on("sendEmoji", ({ code, emoji }) => {
+    const room = rooms.get(code);
+    if (!room) return;
+    io.to(code).emit("emojiReceived", { emoji, from: socket.id });
+  });
+
   socket.on("leaveRoom", ({ code }) => handleLeave(socket, code));
 
   socket.on("disconnect", () => {
@@ -73,12 +80,22 @@ io.on("connection", (socket) => {
     }
   });
 
+  // ✅ 한 명이 나가도 방 자체는 유지 — 남은 사람은 그대로 방에 남아 다시 대기 상태가 됨
   function handleLeave(socket, code) {
     const room = rooms.get(code);
     if (!room) return;
-    socket.to(code).emit("opponentLeft");
-    rooms.delete(code); // 2인용이라 한 명만 나가도 방 정리
+
+    room.players = room.players.filter((p) => p.id !== socket.id);
     socket.leave(code);
+
+    if (room.players.length === 0) {
+      rooms.delete(code); // 아무도 없으면 그때만 방 정리
+      console.log(`방 정리(빈 방): ${code}`);
+      return;
+    }
+
+    // 남은 사람에게 "상대가 나갔다"는 알림 + 최신 상태(나 혼자 남은 상태) 전달
+    io.to(code).emit("opponentLeft", { state: publicState(room) });
   }
 });
 

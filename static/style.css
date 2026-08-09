@@ -165,6 +165,10 @@ body::before {
     padding: 20px 16px 16px;
 }
 
+#room-screen {
+    position: relative;
+}
+
 /* ---------------- 메뉴/대기실 박스 ---------------- */
 .menu-box {
     position: relative;
@@ -276,9 +280,66 @@ body::before {
     box-shadow: 0 0 8px rgba(255, 230, 0, 0.25);
 }
 
+/* ---------------- 이모티콘 리액션 ---------------- */
+.emoji-bar {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.emoji-btn {
+    font-size: 20px;
+    background: #1f4068;
+    border: 2px solid #ffffff;
+    border-radius: 8px;
+    padding: 4px 8px;
+    cursor: pointer;
+    box-shadow: 2px 2px 0px #000000;
+    transition: transform 0.1s ease;
+}
+
+.emoji-btn:hover {
+    transform: translateY(-2px);
+    border-color: #ffe600;
+}
+
+.emoji-btn:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px #000000;
+}
+
+.reaction-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.floating-emoji {
+    position: absolute;
+    bottom: 10%;
+    font-size: 28px;
+    animation: emoji-float 1.6s ease-out forwards;
+}
+
+@keyframes emoji-float {
+    0% {
+        transform: translateY(0) scale(0.8);
+        opacity: 1;
+    }
+    70% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-160px) scale(1.2);
+        opacity: 0;
+    }
+}
+
 /* ---------------- 접근성: 모션 최소화 환경 배려 ---------------- */
 @media (prefers-reduced-motion: reduce) {
-    .bg-stars, .pixel-dice, .insert-coin {
+    .bg-stars, .pixel-dice, .insert-coin, .floating-emoji {
         animation: none !important;
     }
 }
