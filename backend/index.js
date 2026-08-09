@@ -62,11 +62,12 @@ io.on("connection", (socket) => {
     console.log(`방 참가: ${code}`);
   });
 
-  // 간단한 이모티콘 리액션 (게임 로직과 무관, 그냥 브로드캐스트)
+  // 간단한 이모티콘 리액션 (게임 로직과 무관, 그냥 브로드캐스트) — 보낸 사람 이름도 함께 전달
   socket.on("sendEmoji", ({ code, emoji }) => {
     const room = rooms.get(code);
     if (!room) return;
-    io.to(code).emit("emojiReceived", { emoji, from: socket.id });
+    const sender = room.players.find((p) => p.id === socket.id);
+    io.to(code).emit("emojiReceived", { emoji, fromId: socket.id, fromName: sender?.name || "?" });
   });
 
   socket.on("leaveRoom", ({ code }) => handleLeave(socket, code));

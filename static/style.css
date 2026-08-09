@@ -316,11 +316,38 @@ body::before {
     overflow: hidden;
 }
 
-.floating-emoji {
+.floating-emoji-wrap {
     position: absolute;
     bottom: 10%;
-    font-size: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
     animation: emoji-float 1.6s ease-out forwards;
+}
+
+.floating-emoji {
+    font-size: 28px;
+    line-height: 1;
+}
+
+.emoji-name {
+    font-size: 10px;
+    font-weight: bold;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.55);
+    white-space: nowrap;
+}
+
+.floating-emoji-wrap.mine .emoji-name {
+    color: #ffe600;
+    border: 1px solid #ffe600;
+}
+
+.floating-emoji-wrap.theirs .emoji-name {
+    color: #4091ff;
+    border: 1px solid #4091ff;
 }
 
 @keyframes emoji-float {
@@ -339,7 +366,7 @@ body::before {
 
 /* ---------------- 접근성: 모션 최소화 환경 배려 ---------------- */
 @media (prefers-reduced-motion: reduce) {
-    .bg-stars, .pixel-dice, .insert-coin, .floating-emoji {
+    .bg-stars, .pixel-dice, .insert-coin, .floating-emoji-wrap {
         animation: none !important;
     }
 }

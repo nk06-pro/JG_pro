@@ -82,15 +82,21 @@ function leaveRoom() {
 function sendEmoji(emoji) {
     if (!myCode) return;
     socket.emit("sendEmoji", { code: myCode, emoji });
-    spawnFloatingEmoji(emoji); // 내가 보낸 것도 바로 보이게
+    // 로컬에서 미리 띄우지 않음 — 서버가 다시 돌려주는 emojiReceived 하나로만 처리 (중복 방지)
 }
 
-function spawnFloatingEmoji(emoji) {
-    const $el = $(`<span class="floating-emoji">${emoji}</span>`);
-    const left = 20 + Math.random() * 60; // 20~80% 사이 랜덤 위치
-    $el.css("left", left + "%");
-    $("#reaction-layer").append($el);
-    setTimeout(() => $el.remove(), 1600);
+function spawnFloatingEmoji(emoji, name, isMine) {
+    const $wrap = $(`
+        <div class="floating-emoji-wrap ${isMine ? "mine" : "theirs"}">
+            <span class="floating-emoji">${emoji}</span>
+            <span class="emoji-name">${name}</span>
+        </div>
+    `);
+    // 내가 보낸 건 왼쪽 영역, 상대가 보낸 건 오른쪽 영역에서 떠오르게
+    const left = isMine ? 10 + Math.random() * 25 : 65 + Math.random() * 25;
+    $wrap.css("left", left + "%");
+    $("#reaction-layer").append($wrap);
+    setTimeout(() => $wrap.remove(), 1600);
 }
 
 // ---- 서버 이벤트 수신 ----
@@ -104,8 +110,9 @@ socket.on("opponentLeft", ({ state }) => {
     showWaiting();
 });
 
-socket.on("emojiReceived", ({ emoji }) => {
-    spawnFloatingEmoji(emoji);
+socket.on("emojiReceived", ({ emoji, fromId, fromName }) => {
+    const isMine = fromId === socket.id;
+    spawnFloatingEmoji(emoji, isMine ? "나" : fromName, isMine);
 });
 
 socket.on("connect_error", () => {
