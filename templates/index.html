@@ -4,638 +4,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>레트로 블로그 v1.0</title>
-    
-    <!-- 픽셀 감성 폰트 -->
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-    <!-- jQuery CDN (서버 통신을 위해 필수) -->
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <title>멀티 아레나 | 로비</title>
 
-    <style>
-        * {
-            font-family: 'Press Start 2P', monospace, sans-serif !important;
-            box-sizing: border-box;
-            /* 🖱️ [디테일 2] 레트로 십자가 마우스 커서 적용 */
-            cursor: crosshair !important;
-        }
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
 
-        body {
-            background-color: #1a1a1a;
-            color: #ffffff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            overflow: hidden;
-        }
+    <!-- 타이틀용 픽셀 폰트 + 본문용 Jua -->
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Press+Start+2P&display=swap" rel="stylesheet">
 
-        /* 레트로 윈도우 창 박스 스타일 */
-        .retro-window {
-            width: 95vw;
-            height: 92vh;
-            max-width: 1500px;
-            max-height: 950px;
-            background: #c0c0c0;
-            border: 4px solid #ffffff;
-            border-right: 4px solid #404040;
-            border-bottom: 4px solid #404040;
-            box-shadow: 12px 12px 0px #000000;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* 윈도우 타이틀 바 */
-        .window-header {
-            background: #000080;
-            color: #ffffff;
-            padding: 12px 18px;
-            font-size: 14px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .window-body {
-            padding: 30px;
-            flex-grow: 1;
-            background: #2b2b2b;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-        }
-
-        /* 픽셀 버튼 */
-        .pixel-btn {
-            background-color: #c0c0c0;
-            border: 3px solid #ffffff;
-            border-right: 3px solid #404040;
-            border-bottom: 3px solid #404040;
-            color: #000000;
-            padding: 14px 22px;
-            font-size: 13px;
-            text-transform: uppercase;
-            font-weight: bold;
-        }
-
-        .pixel-btn:active {
-            border: 3px solid #404040;
-            border-right: 3px solid #ffffff;
-            border-bottom: 3px solid #ffffff;
-            transform: translate(2px, 2px);
-        }
-
-        /* 1. CMD 로그인 화면 */
-        #cmd-screen {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            background: #000000;
-            padding: 25px;
-            border: 2px inset #ffffff;
-        }
-
-        .cmd-output {
-            flex-grow: 1;
-            font-size: 14px;
-            line-height: 2.0;
-            color: var(--terminal-color, #00ff00);
-            overflow-y: auto;
-        }
-
-        .cmd-line {
-            display: flex;
-            align-items: center;
-            margin-top: 15px;
-        }
-
-        .prompt-symbol {
-            color: #ffff00;
-            font-size: 14px;
-            margin-right: 12px;
-            white-space: nowrap;
-        }
-
-        .cmd-input {
-            background: transparent;
-            border: none;
-            color: #ffffff;
-            font-size: 14px;
-            outline: none;
-            width: 100%;
-        }
-
-        /* 2. 블로그 메인 및 네비게이션 */
-        #blog-screen {
-            display: none;
-            flex-direction: column;
-            height: 100%;
-        }
-
-        .blog-nav {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 25px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .blog-content-area {
-            background: #1e1e1e;
-            border: 2px inset #555;
-            flex-grow: 1;
-            padding: 25px;
-            overflow-y: auto;
-        }
-
-        /* 탭별 화면 */
-        .tab-pane {
-            display: none;
-        }
-        .tab-pane.active {
-            display: block;
-        }
-
-        /* 글 작성 폼 스타일 */
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 13px;
-            color: #ffcc00;
-            margin-bottom: 10px;
-        }
-
-        .form-control {
-            width: 100%;
-            background: #111;
-            border: 2px solid #555;
-            color: #fff;
-            padding: 15px;
-            font-size: 13px;
-        }
-
-        textarea.form-control {
-            height: 200px;
-            resize: none;
-            line-height: 1.6;
-        }
-
-        /* 에러 메시지 스타일 */
-        .error-msg {
-            color: #ff5555;
-            font-size: 12px;
-            margin-bottom: 12px;
-            display: none;
-        }
-
-        /* 작성된 포스트 카드 스타일 */
-        .post-card {
-            background: #333;
-            border: 2px solid #555;
-            padding: 22px;
-            margin-bottom: 20px;
-            position: relative;
-        }
-
-        .post-card h4 {
-            font-size: 15px;
-            color: var(--terminal-color, #00ff00);
-            margin: 0 0 12px 0;
-        }
-
-        .post-card p {
-            font-size: 13px;
-            color: #ccc;
-            margin: 0 0 15px 0;
-            line-height: 1.8;
-            word-break: break-all;
-        }
-
-        /* 포스트 내부 링크 버튼 스타일 */
-        .post-link-btn {
-            display: inline-block;
-            background-color: #555;
-            color: var(--terminal-color, #00ff00);
-            border: 2px solid var(--terminal-color, #00ff00);
-            padding: 8px 14px;
-            font-size: 11px;
-            text-decoration: none;
-            margin-bottom: 15px;
-            word-break: break-all;
-        }
-        .post-link-btn:hover {
-            background-color: #0000cd;
-            color: #ffffff;
-        }
-
-        .post-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-top: 1px dashed #555;
-            padding-top: 12px;
-        }
-
-        .post-card .date {
-            font-size: 11px;
-            color: #777;
-        }
-
-        .btn-group-sm {
-            display: flex;
-            gap: 8px;
-        }
-
-        /* 작은 액션 버튼들 */
-        .action-btn {
-            background-color: #555;
-            color: #ffffff;
-            border: 2px solid #888;
-            font-size: 11px;
-            padding: 8px 14px;
-        }
-        .action-btn.delete {
-            background-color: #800000;
-            border-color: #ff0000;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
+    <div class="wrap">
 
-    <div class="retro-window">
-        <!-- 윈도우 타이틀바 -->
-        <div class="window-header">
-            <span id="windowTitle">레트로 블로그 v1.0</span>
-            <div style="display: flex; gap: 8px; align-items: center;">
-                <!-- 컬러 테마 변경 버튼 -->
-                <button onclick="setTheme('green')" style="background: #00ff00; color: #000; border: 1px solid #000; font-size: 10px; padding: 2px 6px; font-weight: bold;">Green</button>
-                <button onclick="setTheme('amber')" style="background: #ffb000; color: #000; border: 1px solid #000; font-size: 10px; padding: 2px 6px; font-weight: bold;">Amber</button>
-                <span>[_] [O] [X]</span>
+        <!-- 1. 타이틀 화면 -->
+        <div id="title-screen">
+            <div class="mytitle">
+                <h1>MULTI ARENA</h1>
+                <p>친구와 함께, 실시간으로 즐기는 미니게임</p>
+            </div>
+
+            <div class="menu-box">
+                <div class="mb-3">
+                    <input id="input-name" type="text" class="form-control" maxlength="8" placeholder="닉네임을 입력하세요">
+                </div>
+
+                <button id="btn-create" class="btn btn-arcade w-100 mb-2">🛠 방 만들기</button>
+                <button id="btn-show-join" class="btn btn-arcade-outline w-100">🔑 방 참가하기</button>
+
+                <!-- 참가 코드 입력 (평소엔 숨김) -->
+                <div id="join-area" class="mt-3" style="display:none;">
+                    <div class="d-flex gap-2">
+                        <input id="input-code" type="text" class="form-control" maxlength="6"
+                            placeholder="6자리 코드" style="text-transform:uppercase;">
+                        <button id="btn-join" class="btn btn-arcade">참가</button>
+                    </div>
+                </div>
+
+                <div id="alert-box" class="alert alert-danger mt-3" style="display:none;"></div>
             </div>
         </div>
 
-        <div class="window-body">
-            
-            <!-- 1. CMD 로그인 화면 (ID가 위, PW가 아래) -->
-            <div id="cmd-screen">
-                <div class="cmd-output" id="cmdLog">
-                    <p style="color: #ffff00;">Microsoft Windows [Version 10.0.22631]</p>
-                    <p>(c) Microsoft Corporation. All rights reserved.</p>
-                    <br>
-                    <p>C:\RETRO_BLOG&gt; 시스템 인증 정보를 확인합니다.</p>
-                </div>
-                
-                <!-- 아이디 입력 (위) -->
-                <div class="cmd-line">
-                    <span class="prompt-symbol">아이디(ID):</span>
-                    <input type="text" id="inputUserId" class="cmd-input" value="admin" autocomplete="off" onkeydown="handleLogin(event)">
-                </div>
-
-                <!-- 비밀번호 입력 (아래) -->
-                <div class="cmd-line">
-                    <span class="prompt-symbol">비밀번호(PW):</span>
-                    <input type="password" id="inputUserPw" class="cmd-input" value="1234" autocomplete="off" onkeydown="handleLogin(event)">
-                </div>
-
-                <p style="font-size: 12px; color: #888; margin-top: 20px;">* 아이디와 비밀번호 칸을 수정하고 **아무 곳에서나 엔터**를 누르면 로그인됩니다.</p>
+        <!-- 2. 대기실 화면 (방 생성/참가 후) -->
+        <div id="room-screen" style="display:none;">
+            <div class="mytitle mytitle-small">
+                <h2 id="room-code-display">------</h2>
+                <p>방 코드를 공유하세요</p>
             </div>
 
-            <!-- 2. 레트로 블로그 메인 화면 -->
-            <div id="blog-screen">
-                <!-- 상단 탭 메뉴 -->
-                <div class="blog-nav">
-                    <button class="pixel-btn" onclick="switchTab('view')">📂 작성글 확인하기</button>
-                    <button class="pixel-btn" onclick="switchTab('write')">✏️ 새 글 작성하기</button>
-                    <button class="pixel-btn" onclick="clearLocalStorageData()" style="background-color: #550000; color: #ff5555;">🗑️ 데이터 초기화</button>
-                    <button class="pixel-btn" onclick="logout()" style="background-color: #800000; color: #fff; margin-left: auto;">🚪 로그아웃</button>
+            <div class="menu-box text-center">
+                <div id="waiting-area">
+                    <p id="status-msg">상대방을 기다리는 중...</p>
+                    <div class="spinner-border text-light" role="status"></div>
                 </div>
 
-                <!-- 컨텐츠 표시 영역 -->
-                <div class="blog-content-area">
-                    
-                    <!-- [탭 1] 작성글 확인 화면 -->
-                    <div id="tab-view" class="tab-pane active">
-                        <h3 style="font-size: 16px; color: #ffff00; margin-top:0; margin-bottom: 20px;" id="viewHeader">저장된 포스트 목록</h3>
-                        <div id="postListContainer">
-                            <!-- 저장된 글들이 여기에 동적으로 렌더링됩니다 -->
-                        </div>
-                    </div>
-
-                    <!-- [탭 2] 글 작성 화면 -->
-                    <div id="tab-write" class="tab-pane">
-                        <h3 style="font-size: 16px; color: #ffff00; margin-top:0; margin-bottom: 20px;" id="formHeading">[ 새 포스트 작성 ]</h3>
-                        <div class="error-msg" id="formError">오류: 제목과 내용을 모두 입력해주세요!</div>
-                        
-                        <input type="hidden" id="editIndex" value="">
-
-                        <div class="form-group">
-                            <label>제목(TITLE):</label>
-                            <input type="text" id="postTitle" class="form-control" placeholder="예: [프로젝트] C언어 자료구조 구현">
-                        </div>
-                        <div class="form-group">
-                            <label>내용(CONTENT):</label>
-                            <textarea id="postContent" class="form-control" placeholder="내용을 적어주세요..."></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>관련 링크(LINK - 선택사항):</label>
-                            <input type="text" id="postLink" class="form-control" placeholder="예: https://github.com/my-project">
-                        </div>
-                        <button class="pixel-btn" onclick="savePost()" style="width: 100%; background-color: #008080; color: #fff; padding: 16px;" id="saveBtn">💾 블로그에 저장하기</button>
-                    </div>
-
+                <div id="connected-area" style="display:none;">
+                    <p class="connected-msg">✅ 연결 완료!</p>
+                    <div id="player-list"></div>
+                    <p class="hint-text">여기부터 실제 게임 화면으로 이어집니다.</p>
                 </div>
+
+                <button id="btn-leave" class="btn btn-arcade-outline w-100 mt-3">로비로 나가기</button>
             </div>
-
         </div>
+
     </div>
 
-    <script>
-        // 🔊 레트로 비프 사운드 효과
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playBeep(freq = 600, type = 'square', duration = 0.04) {
-            try {
-                if (audioCtx.state === 'suspended') { audioCtx.resume(); }
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = type;
-                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start();
-                osc.stop(audioCtx.currentTime + duration);
-            } catch (e) {}
-        }
-
-        document.addEventListener('click', (e) => {
-            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') {
-                playBeep(800, 'square', 0.05);
-            } else {
-                playBeep(400, 'sine', 0.03);
-            }
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                playBeep(1000, 'sawtooth', 0.02);
-            }
-        });
-
-        let userId = "";
-
-        function setTheme(theme) {
-            let root = document.documentElement;
-            if (theme === 'green') {
-                root.style.setProperty('--terminal-color', '#00ff00');
-            } else if (theme === 'amber') {
-                root.style.setProperty('--terminal-color', '#ffb000');
-            }
-        }
-        setTheme('green');
-
-        function handleLogin(e) {
-            if (e.key === "Enter") {
-                let idField = document.getElementById("inputUserId");
-                let pwField = document.getElementById("inputUserPw");
-                
-                userId = idField.value.trim();
-                let userPw = pwField.value.trim();
-                let cmdLog = document.getElementById("cmdLog");
-
-                if (userId === "" || userPw !== "21") {
-                    playBeep(200, 'sawtooth', 0.15);
-                    cmdLog.innerHTML += `<p style="color: #ff5555; margin-top: 10px;">&gt; [ERROR]: ACCESS DENIED. Invalid ID or Password!</p>`;
-                    cmdLog.scrollTop = cmdLog.scrollHeight;
-                    return; 
-                }
-
-                idField.disabled = true;
-                pwField.disabled = true;
-
-                cmdLog.innerHTML += `<p>아이디: ${userId} / 비밀번호: ***** (인증 시도 중)</p>`;
-
-                let loading = [
-                    `<p style="color: var(--terminal-color);">&gt; Initializing secure system connection...</p>`,
-                    `<p style="color: var(--terminal-color);">[1] Security Check: Verifying user privileges...</p>`,
-                    `<p style="color: var(--terminal-color);">[2] Memory Allocation: Loading workspace modules...</p>`,
-                    `<p style="color: #ffff00;">&gt; WARNING: Encrypted session token generated successfully.</p>`,
-                    `<p style="color: var(--terminal-color);">[3] Database Sync: Mounting MongoDB Atlas partitions...</p>`,
-                    `<p style="color: var(--terminal-color);">[4] Status: All integrity checks passed with 100% precision!</p>`,
-                    `<p style="color: var(--terminal-color);">&gt; Retro environment successfully configured...</p>`,
-                    `<p style="color: #ffff00; font-weight: bold;">&gt; ACCESS GRANTED. Welcome, ${userId}!</p>`
-                ];
-
-                let idx = 0;
-                let timer = setInterval(() => {
-                    if (idx < loading.length) {
-                        playBeep(700 + (idx * 100), 'square', 0.04);
-                        cmdLog.innerHTML += loading[idx];
-                        cmdLog.scrollTop = cmdLog.scrollHeight;
-                        idx++;
-                    } else {
-                        clearInterval(timer);
-                        setTimeout(() => {
-                            document.getElementById("cmd-screen").style.display = "none";
-                            document.getElementById("blog-screen").style.display = "flex";
-                            document.getElementById("windowTitle").innerText = `${userId}의 레트로 포트폴리오 블로그`;
-                            loadPosts(); 
-                        }, 800);
-                    }
-                }, 250);
-            }
-        }
-
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
-            document.getElementById('formError').style.display = 'none';
-
-            if (tabName === 'view') {
-                document.getElementById('tab-view').classList.add('active');
-                loadPosts();
-            } else if (tabName === 'write') {
-                resetForm();
-                document.getElementById('tab-write').classList.add('active');
-            }
-        }
-
-        function resetForm() {
-            document.getElementById("postTitle").value = "";
-            document.getElementById("postContent").value = "";
-            document.getElementById("postLink").value = "";
-            document.getElementById("editIndex").value = "";
-            document.getElementById("formHeading").innerText = "[ 새 포스트 작성 ]";
-            document.getElementById("saveBtn").innerText = "💾 블로그에 저장하기";
-            document.getElementById('formError').style.display = 'none';
-        }
-
-        // 💡 1. 저장 및 수정 처리 (DB 연동)
-        function savePost() {
-            let title = document.getElementById("postTitle").value.trim();
-            let content = document.getElementById("postContent").value.trim();
-            let link = document.getElementById("postLink").value.trim();
-            let editId = document.getElementById("editIndex").value;
-            let errorMsg = document.getElementById("formError");
-
-            if (!title || !content) {
-                errorMsg.style.display = 'block';
-                return;
-            }
-            errorMsg.style.display = 'none';
-
-            let url = '/api/memo';
-            let data = {
-                title_give: title,
-                content_give: content,
-                link_give: link
-            };
-
-            if (editId !== "") {
-                url = '/api/memo/update';
-                data.id_give = editId;
-            }
-
-            $.ajax({
-                type: 'POST',
-                url: url,
-                data: data,
-                success: function (response) {
-                    alert(response['msg']);
-                    resetForm();
-                    switchTab('view');
-                }
-            });
-        }
-
-        // 💡 2. 목록 불러오기 (DB 연동 + 최신순)
-        function loadPosts() {
-            let container = document.getElementById("postListContainer");
-
-            $.ajax({
-                type: 'GET',
-                url: '/api/memo',
-                data: {},
-                success: function (response) {
-                    let posts = response['posts'];
-
-                    if (posts.length === 0) {
-                        container.innerHTML = `<p style="font-size: 13px; color: #777; text-align: center; margin-top: 60px;">작성된 글이 없습니다. [새 글 작성하기]에서 포스팅을 남겨보세요!</p>`;
-                        return;
-                    }
-
-                    let html = "";
-                    posts.forEach(post => {
-                        let linkHtml = "";
-                        if (post.link && post.link.trim() !== "") {
-                            let safeUrl = post.link;
-                            if (!safeUrl.startsWith('http://') && !safeUrl.startsWith('https://')) {
-                                safeUrl = 'https://' + safeUrl;
-                            }
-                            linkHtml = `<a href="${safeUrl}" target="_blank" class="post-link-btn">🔗 관련 링크 바로가기 (${post.link})</a><br>`;
-                        }
-
-                        html += `
-                            <div class="post-card">
-                                <h4>📌 ${post.title}</h4>
-                                <p>${post.content.replace(/\n/g, '<br>')}</p>
-                                ${linkHtml}
-                                <div class="post-footer">
-                                    <span class="date">${post.date || '2026. 04. 12'}</span>
-                                    <div class="btn-group-sm">
-                                        <button class="action-btn" onclick="editPost('${post.id}')">수정</button>
-                                        <button class="action-btn delete" onclick="deletePost('${post.id}')">삭제</button>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    container.innerHTML = html;
-                }
-            });
-        }
-
-        // 💡 3. 수정 버튼 클릭 시 데이터 폼에 채우기
-        function editPost(id) {
-            $.ajax({
-                type: 'GET',
-                url: '/api/memo',
-                data: {},
-                success: function (response) {
-                    let posts = response['posts'];
-                    let post = posts.find(p => p.id == id);
-
-                    if (post) {
-                        document.getElementById("postTitle").value = post.title;
-                        document.getElementById("postContent").value = post.content;
-                        document.getElementById("postLink").value = post.link || "";
-                        document.getElementById("editIndex").value = post.id;
-                        
-                        document.getElementById("formHeading").innerText = "[ 포스트 수정 ]";
-                        document.getElementById("saveBtn").innerText = "💾 수정 내용 저장하기";
-
-                        document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
-                        document.getElementById('tab-write').classList.add('active');
-                    }
-                }
-            });
-        }
-
-        // 💡 4. 개별 포스트 삭제 (DB 연동)
-        function deletePost(id) {
-            if (confirm("정말 이 포스트를 삭제하시겠습니까?")) {
-                $.ajax({
-                    type: 'POST',
-                    url: '/api/memo/delete',
-                    data: { id_give: id },
-                    success: function (response) {
-                        alert(response['msg']);
-                        loadPosts();
-                    }
-                });
-            }
-        }
-
-        // 💡 5. 전체 데이터 초기화 (DB 연동)
-        function clearLocalStorageData() {
-            if (confirm("저장된 모든 블로그 데이터를 삭제하고 초기화하시겠습니까?")) {
-                $.ajax({
-                    type: 'POST',
-                    url: '/api/memo/clear',
-                    data: {},
-                    success: function (response) {
-                        alert(response['msg']);
-                        loadPosts();
-                    }
-                });
-            }
-        }
-
-        function logout() {
-            document.getElementById("blog-screen").style.display = "none";
-            document.getElementById("cmd-screen").style.display = "flex";
-            
-            let idField = document.getElementById("inputUserId");
-            let pwField = document.getElementById("inputUserPw");
-            
-            idField.value = "admin";
-            pwField.value = "1234";
-            idField.disabled = false;
-            pwField.disabled = false;
-            
-            document.getElementById("windowTitle").innerText = "블로그 v1.0";
-            document.getElementById("cmdLog").innerHTML = `
-                <p style="color: #ffff00;">Microsoft Windows [Version 10.0.22631]</p>
-                <p>(c) Microsoft Corporation. All rights reserved.</p>
-                <br>
-                <p>C:\RETRO_BLOG&gt; 시스템 인증 정보를 확인합니다.</p>
-            `;
-            idField.focus();
-        }
-    </script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <!-- Socket.io 클라이언트 -->
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <!-- 게임 로직 -->
+    <script src="script.js"></script>
 </body>
 
 </html>

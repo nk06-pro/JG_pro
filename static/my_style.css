@@ -1,0 +1,146 @@
+* {
+    font-family: 'Jua', sans-serif;
+}
+
+body {
+    background-color: #1b1b2f;
+    color: #ffffff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+}
+
+.wrap {
+    width: 420px;
+    max-width: 92vw;
+    padding: 20px 0;
+}
+
+/* ---------------- 타이틀 박스 ---------------- */
+.mytitle {
+    background: linear-gradient(160deg, #2b2b52 0%, #0f3460 100%);
+    border: 4px solid #ffffff;
+    border-radius: 6px;
+    text-align: center;
+    padding: 32px 16px;
+    margin-bottom: 20px;
+    box-shadow: 6px 6px 0px #000000;
+}
+
+.mytitle h1 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 22px;
+    color: #ffe600;
+    text-shadow: 3px 3px #000;
+    margin-bottom: 14px;
+}
+
+.mytitle h2 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 20px;
+    letter-spacing: 0.2em;
+    color: #ffe600;
+    text-shadow: 2px 2px #000;
+    margin-bottom: 6px;
+}
+
+.mytitle p {
+    font-size: 13px;
+    color: #d7d7ff;
+}
+
+.mytitle-small {
+    padding: 22px 16px;
+}
+
+/* ---------------- 메뉴/대기실 박스 ---------------- */
+.menu-box {
+    background: #162447;
+    border: 4px solid #ffffff;
+    border-radius: 6px;
+    padding: 22px;
+    box-shadow: 6px 6px 0px #000000;
+}
+
+.form-control {
+    background-color: #1f4068 !important;
+    border: 2px solid #ffffff !important;
+    color: #ffffff !important;
+    border-radius: 4px !important;
+}
+
+.form-control::placeholder {
+    color: #b8c4e0;
+}
+
+.form-control:focus {
+    box-shadow: none !important;
+    border-color: #ffe600 !important;
+}
+
+/* ---------------- 아케이드 버튼 ---------------- */
+.btn-arcade {
+    background-color: #e43f5a;
+    border: 2px solid #ffffff;
+    border-radius: 4px;
+    color: #ffffff;
+    font-weight: bold;
+    padding: 10px;
+    box-shadow: 3px 3px 0px #000000;
+    transition: transform 0.1s ease;
+}
+
+.btn-arcade:hover {
+    color: #ffffff;
+    transform: translate(1px, 1px);
+    box-shadow: 2px 2px 0px #000000;
+}
+
+.btn-arcade-outline {
+    background-color: transparent;
+    border: 2px solid #ffffff;
+    border-radius: 4px;
+    color: #ffffff;
+    font-weight: bold;
+    padding: 10px;
+    box-shadow: 3px 3px 0px #000000;
+    transition: transform 0.1s ease;
+}
+
+.btn-arcade-outline:hover {
+    color: #ffe600;
+    border-color: #ffe600;
+    transform: translate(1px, 1px);
+    box-shadow: 2px 2px 0px #000000;
+}
+
+/* ---------------- 대기실 ---------------- */
+#status-msg {
+    font-size: 14px;
+    color: #d7d7ff;
+    margin-bottom: 10px;
+}
+
+.connected-msg {
+    font-size: 16px;
+    font-weight: bold;
+    color: #7CFC00;
+}
+
+.hint-text {
+    font-size: 12px;
+    color: #9aa5c9;
+    margin-top: 10px;
+}
+
+.player-chip {
+    display: inline-block;
+    padding: 5px 14px;
+    margin: 4px;
+    border-radius: 999px;
+    background: #1f4068;
+    border: 2px solid #ffe600;
+    font-size: 13px;
+}
