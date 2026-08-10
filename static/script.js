@@ -175,10 +175,45 @@ function toggleHold(i) {
     socket.emit("toggleHold", { code: myCode, index: i });
 }
 
+let isRollingAnim = false;
+let pendingGameState = null;
+
 function rollDiceAction() {
     const game = currentState?.game;
-    if (!game || game.turnPlayerId !== socket.id || game.rollsLeft <= 0) return;
+    if (!game || game.turnPlayerId !== socket.id || game.rollsLeft <= 0 || isRollingAnim) return;
+    playRollAnimation(game.held);
     socket.emit("rollDice", { code: myCode });
+}
+
+// 실제 값이 서버에서 도착하기 전, 잠깐 여러 눈이 빠르게 스쳐가며 "진짜 굴러가는" 느낌을 줌
+function playRollAnimation(held) {
+    isRollingAnim = true;
+    $("#btn-roll").prop("disabled", true);
+
+    const faces = "⚀⚁⚂⚃⚄⚅";
+    const $diceEls = $("#dice-tray .die");
+    $diceEls.each(function (i) {
+        if (!held[i]) $(this).addClass("die-rolling");
+    });
+
+    let ticks = 0;
+    const totalTicks = 10; // 대략 10 * 70ms ≈ 0.7초 동안 눈이 계속 바뀜
+    const timer = setInterval(() => {
+        ticks++;
+        $diceEls.each(function (i) {
+            if (!held[i]) $(this).text(faces[Math.floor(Math.random() * 6)]);
+        });
+        if (ticks >= totalTicks) {
+            clearInterval(timer);
+            $diceEls.removeClass("die-rolling");
+            isRollingAnim = false;
+            // 애니메이션 도는 동안 서버 결과가 먼저 도착했다면 이제 반영, 아직이면 다음 stateUpdate에서 자연히 반영됨
+            if (pendingGameState) {
+                renderGame(pendingGameState);
+                pendingGameState = null;
+            }
+        }
+    }, 70);
 }
 
 function chooseCategory(key) {
@@ -259,6 +294,10 @@ socket.on("gameStart", (state) => {
 });
 
 socket.on("stateUpdate", (state) => {
+    if (isRollingAnim) {
+        pendingGameState = state; // 애니메이션 끝나면 반영
+        return;
+    }
     renderGame(state);
 });
 
