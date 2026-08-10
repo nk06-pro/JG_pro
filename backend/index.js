@@ -4,19 +4,21 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 
+const { scoreFor, computeTotals, isScorecardFull, emptyScorecard, rollDice } = require("./gameLogic");
+
 const PORT = process.env.PORT || 4000;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 
 const app = express();
 app.use(cors({ origin: CLIENT_ORIGIN }));
-app.get("/", (_req, res) => res.send("Lobby server OK")); // 헬스체크용
+app.get("/", (_req, res) => res.send("Lobby + Yacht server OK")); // 헬스체크용
 
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: CLIENT_ORIGIN, methods: ["GET", "POST"] },
 });
 
-// 방 상태: code -> { players: [{id, name}] }
+// 방 상태: code -> { players:[{id,name}], game: {...} | null }
 const rooms = new Map();
 
 function makeRoomCode() {
@@ -28,11 +30,51 @@ function makeRoomCode() {
   return code;
 }
 
+function freshGame(players) {
+  const scorecards = {};
+  players.forEach((p) => (scorecards[p.id] = emptyScorecard()));
+  return {
+    dice: [1, 1, 1, 1, 1],
+    held: [false, false, false, false, false],
+    rollsLeft: 3,
+    turnIndex: 0,
+    scorecards,
+    status: "playing", // playing | finished
+  };
+}
+
 function publicState(room) {
   return {
     code: room.code,
     players: room.players.map((p) => ({ id: p.id, name: p.name })),
+    game: room.game
+      ? {
+          dice: room.game.dice,
+          held: room.game.held,
+          rollsLeft: room.game.rollsLeft,
+          turnPlayerId: room.players[room.game.turnIndex]?.id ?? null,
+          scorecards: room.game.scorecards,
+          status: room.game.status,
+        }
+      : null,
   };
+}
+
+function isTurnOwner(room, socketId) {
+  return room.game && room.players[room.game.turnIndex]?.id === socketId;
+}
+
+function finishGame(room) {
+  room.game.status = "finished";
+  const totals = room.players.map((p) => ({
+    name: p.name,
+    total: computeTotals(room.game.scorecards[p.id]).total,
+  }));
+  let winnerName = null;
+  if (totals.length === 2 && totals[0].total !== totals[1].total) {
+    winnerName = totals[0].total > totals[1].total ? totals[0].name : totals[1].name;
+  }
+  io.to(room.code).emit("gameOver", { state: publicState(room), totals, winnerName });
 }
 
 io.on("connection", (socket) => {
@@ -41,14 +83,14 @@ io.on("connection", (socket) => {
   // 방 생성
   socket.on("createRoom", ({ name }, callback) => {
     const code = makeRoomCode();
-    const room = { code, players: [{ id: socket.id, name: (name || "P1").slice(0, 8) }] };
+    const room = { code, players: [{ id: socket.id, name: (name || "P1").slice(0, 8) }], game: null };
     rooms.set(code, room);
     socket.join(code);
     callback?.({ ok: true, code, state: publicState(room) });
     console.log(`방 생성: ${code}`);
   });
 
-  // 방 참가
+  // 방 참가 — 2명이 되면 게임을 새로 시작
   socket.on("joinRoom", ({ code, name }, callback) => {
     const room = rooms.get(code);
     if (!room) return callback?.({ ok: false, message: "존재하지 않는 방입니다." });
@@ -57,12 +99,57 @@ io.on("connection", (socket) => {
     room.players.push({ id: socket.id, name: (name || "P2").slice(0, 8) });
     socket.join(code);
 
+    room.game = freshGame(room.players); // 2명이 모였으니 새 게임 시작
+
     callback?.({ ok: true, code, state: publicState(room) });
-    io.to(code).emit("gameStart", publicState(room)); // 2명 다 모였다고 알림
+    io.to(code).emit("gameStart", publicState(room));
     console.log(`방 참가: ${code}`);
   });
 
-  // 간단한 이모티콘 리액션 (게임 로직과 무관, 그냥 브로드캐스트) — 보낸 사람 이름도 함께 전달
+  // 주사위 굴리기
+  socket.on("rollDice", ({ code }) => {
+    const room = rooms.get(code);
+    if (!room?.game || room.game.status !== "playing") return;
+    if (!isTurnOwner(room, socket.id) || room.game.rollsLeft <= 0) return;
+
+    const fresh = rollDice(5);
+    room.game.dice = room.game.dice.map((v, i) => (room.game.held[i] ? v : fresh[i]));
+    room.game.rollsLeft -= 1;
+    io.to(code).emit("stateUpdate", publicState(room));
+  });
+
+  // 주사위 홀드 토글
+  socket.on("toggleHold", ({ code, index }) => {
+    const room = rooms.get(code);
+    if (!room?.game || room.game.status !== "playing") return;
+    if (!isTurnOwner(room, socket.id)) return;
+    if (room.game.rollsLeft === 3 || room.game.rollsLeft <= 0) return; // 최소 1번은 굴려야 홀드 가능
+    room.game.held[index] = !room.game.held[index];
+    io.to(code).emit("stateUpdate", publicState(room));
+  });
+
+  // 카테고리 선택(점수 기록) + 턴 넘기기
+  socket.on("chooseCategory", ({ code, key }) => {
+    const room = rooms.get(code);
+    if (!room?.game || room.game.status !== "playing") return;
+    if (!isTurnOwner(room, socket.id) || room.game.rollsLeft === 3) return;
+    if (typeof room.game.scorecards[socket.id][key] === "number") return; // 이미 사용한 칸
+
+    room.game.scorecards[socket.id][key] = scoreFor(key, room.game.dice);
+    room.game.dice = [1, 1, 1, 1, 1];
+    room.game.held = [false, false, false, false, false];
+    room.game.rollsLeft = 3;
+
+    const bothFull = room.players.every((p) => isScorecardFull(room.game.scorecards[p.id]));
+    if (bothFull) {
+      finishGame(room);
+      return;
+    }
+    room.game.turnIndex = (room.game.turnIndex + 1) % room.players.length;
+    io.to(code).emit("stateUpdate", publicState(room));
+  });
+
+  // 이모티콘 리액션
   socket.on("sendEmoji", ({ code, emoji }) => {
     const room = rooms.get(code);
     if (!room) return;
@@ -81,21 +168,21 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ✅ 한 명이 나가도 방 자체는 유지 — 남은 사람은 그대로 방에 남아 다시 대기 상태가 됨
+  // 한 명이 나가도 방 자체는 유지 — 남은 사람은 방에 남고, 진행 중이던 게임은 중단(대기 상태로)
   function handleLeave(socket, code) {
     const room = rooms.get(code);
     if (!room) return;
 
     room.players = room.players.filter((p) => p.id !== socket.id);
+    room.game = null; // 혼자 남았으니 진행 중이던 게임은 리셋 (새 상대가 들어오면 freshGame으로 재시작)
     socket.leave(code);
 
     if (room.players.length === 0) {
-      rooms.delete(code); // 아무도 없으면 그때만 방 정리
+      rooms.delete(code);
       console.log(`방 정리(빈 방): ${code}`);
       return;
     }
 
-    // 남은 사람에게 "상대가 나갔다"는 알림 + 최신 상태(나 혼자 남은 상태) 전달
     io.to(code).emit("opponentLeft", { state: publicState(room) });
   }
 });
