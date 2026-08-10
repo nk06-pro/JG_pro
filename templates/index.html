@@ -65,6 +65,8 @@
 
         <!-- 2. 대기실 화면 (방 생성/참가 후) -->
         <div id="room-screen" style="display:none;">
+            <button id="btn-leave" class="corner-leave-btn" type="button" title="나가기 (ESC)">✕</button>
+
             <div class="mytitle mytitle-small">
                 <div class="mytitle-crt">
                     <h2 id="room-code-display">------</h2>
@@ -83,27 +85,20 @@
                 <div id="connected-area" style="display:none;">
                     <p class="turn-indicator" id="turn-indicator">-</p>
 
-                    <div class="dice-scene" id="dice-tray"></div>
-
-                    <button id="btn-roll" class="btn btn-arcade w-100 mb-2">🎲 굴리기</button>
-                    <button id="btn-open-score" class="btn btn-arcade-outline w-100">📊 점수판 보기</button>
+                    <!-- 점수판 + 주사위를 한 화면에 상시 표시 (모달 없음) -->
+                    <div class="game-layout">
+                        <div class="score-panel">
+                            <div id="score-grid" class="score-grid"></div>
+                        </div>
+                        <div class="dice-panel">
+                            <div class="dice-scene" id="dice-tray"></div>
+                            <button id="btn-roll" class="btn btn-arcade w-100">🎲 굴리기</button>
+                        </div>
+                    </div>
                 </div>
-
-                <button id="btn-leave" class="btn btn-arcade-outline w-100 mt-3">로비로 나가기</button>
 
                 <!-- 이모티콘 리액션 바 (JS가 버튼을 동적으로 채워넣음) -->
                 <div id="emoji-bar" class="emoji-bar mt-3"></div>
-            </div>
-
-            <!-- 점수판: 확대된 풀스크린 모달 (행=점수항목, 열=플레이어) -->
-            <div id="score-modal" class="score-modal" style="display:none;">
-                <div class="score-modal-inner">
-                    <div class="score-modal-header">
-                        <span id="score-modal-turn" class="score-modal-turn">-</span>
-                        <button id="btn-close-score" class="score-modal-close" type="button">✕</button>
-                    </div>
-                    <div id="score-grid" class="score-grid"></div>
-                </div>
             </div>
 
             <!-- 떠오르는 이모티콘 리액션이 표시되는 레이어 -->
