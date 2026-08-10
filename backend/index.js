@@ -46,7 +46,7 @@ function freshGame(players) {
 function publicState(room) {
   return {
     code: room.code,
-    players: room.players.map((p) => ({ id: p.id, name: p.name })),
+    players: room.players.map((p) => ({ id: p.id, name: p.name, ready: !!p.ready })),
     game: room.game
       ? {
           dice: room.game.dice,
@@ -83,27 +83,45 @@ io.on("connection", (socket) => {
   // 방 생성
   socket.on("createRoom", ({ name }, callback) => {
     const code = makeRoomCode();
-    const room = { code, players: [{ id: socket.id, name: (name || "P1").slice(0, 8) }], game: null };
+    const room = { code, players: [{ id: socket.id, name: (name || "P1").slice(0, 8), ready: false }], game: null };
     rooms.set(code, room);
     socket.join(code);
     callback?.({ ok: true, code, state: publicState(room) });
     console.log(`방 생성: ${code}`);
   });
 
-  // 방 참가 — 2명이 되면 게임을 새로 시작
+  // 방 참가 — 자동으로 게임을 시작하지 않고, 준비 대기 상태로만 만듦
   socket.on("joinRoom", ({ code, name }, callback) => {
     const room = rooms.get(code);
     if (!room) return callback?.({ ok: false, message: "존재하지 않는 방입니다." });
     if (room.players.length >= 2) return callback?.({ ok: false, message: "방이 가득 찼습니다." });
 
-    room.players.push({ id: socket.id, name: (name || "P2").slice(0, 8) });
+    room.players.push({ id: socket.id, name: (name || "P2").slice(0, 8), ready: false });
+    room.players.forEach((p) => (p.ready = false)); // 구성원이 바뀌었으니 준비 상태 초기화
+    room.game = null;
     socket.join(code);
 
-    room.game = freshGame(room.players); // 2명이 모였으니 새 게임 시작
-
     callback?.({ ok: true, code, state: publicState(room) });
-    io.to(code).emit("gameStart", publicState(room));
+    socket.to(code).emit("roomUpdate", publicState(room)); // 이미 있던 사람에게도 갱신된 인원 알림
     console.log(`방 참가: ${code}`);
+  });
+
+  // 준비 완료 토글 — 둘 다 준비되면 그때 게임 시작
+  socket.on("toggleReady", ({ code }) => {
+    const room = rooms.get(code);
+    if (!room) return;
+    const player = room.players.find((p) => p.id === socket.id);
+    if (!player) return;
+
+    player.ready = !player.ready;
+
+    const allReady = room.players.length === 2 && room.players.every((p) => p.ready);
+    if (allReady) {
+      room.game = freshGame(room.players);
+      io.to(code).emit("gameStart", publicState(room));
+    } else {
+      io.to(code).emit("roomUpdate", publicState(room));
+    }
   });
 
   // 주사위 굴리기
@@ -174,7 +192,8 @@ io.on("connection", (socket) => {
     if (!room) return;
 
     room.players = room.players.filter((p) => p.id !== socket.id);
-    room.game = null; // 혼자 남았으니 진행 중이던 게임은 리셋 (새 상대가 들어오면 freshGame으로 재시작)
+    room.players.forEach((p) => (p.ready = false)); // 새 상대가 들어오면 다시 준비해야 함
+    room.game = null; // 혼자 남았으니 진행 중이던 게임은 리셋 (새 상대가 들어오면 준비 후 재시작)
     socket.leave(code);
 
     if (room.players.length === 0) {

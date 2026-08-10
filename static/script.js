@@ -20,8 +20,10 @@ function createRoom() {
             return;
         }
         myCode = res.code;
+        currentState = res.state;
         enterRoomScreen(res.code);
         showWaiting();
+        renderWaitingList(res.state);
     });
 }
 
@@ -39,12 +41,10 @@ function joinRoom() {
             return;
         }
         myCode = res.code;
+        currentState = res.state;
         enterRoomScreen(res.code);
-        if (res.state && res.state.players.length === 2) {
-            showConnected(res.state.players);
-        } else {
-            showWaiting();
-        }
+        showWaiting(); // 2명이 모여도 자동 시작 안 함 — 준비 버튼을 눌러야 시작됨
+        renderWaitingList(res.state);
     });
 }
 
@@ -58,12 +58,37 @@ function enterRoomScreen(code) {
 function showWaiting() {
     $("#waiting-area").show();
     $("#connected-area").hide();
-    $("#status-msg").text("상대방을 기다리는 중...");
 }
 
 function showConnected() {
     $("#waiting-area").hide();
     $("#connected-area").show();
+}
+
+// 대기실: 참가자 목록 + 준비 상태 표시, 2명이 모이면 준비 버튼 노출
+function renderWaitingList(state) {
+    currentState = state;
+    const players = state.players || [];
+    const me = players.find((p) => p.id === socket.id);
+
+    if (players.length < 2) {
+        $("#status-msg").text("상대방을 기다리는 중...");
+        $("#waiting-player-list").empty();
+        $("#btn-ready").hide();
+        return;
+    }
+
+    $("#status-msg").text("둘 다 준비되면 게임이 시작됩니다");
+    const chips = players
+        .map((p) => `<span class="player-chip ${p.ready ? "chip-ready" : ""}">${p.name} ${p.ready ? "✅" : "⏳"}</span>`)
+        .join("");
+    $("#waiting-player-list").html(chips);
+    $("#btn-ready").show().text(me?.ready ? "🔁 준비 취소" : "✅ 준비하기");
+}
+
+function toggleReady() {
+    if (!myCode) return;
+    socket.emit("toggleReady", { code: myCode });
 }
 
 // ✅ 방을 완전히 나갈 때만 호출 (상대가 나간 것과는 별개)
@@ -288,8 +313,13 @@ function spawnFloatingEmoji(emoji, name, isMine) {
 }
 
 // ---- 서버 이벤트 수신 ----
+socket.on("roomUpdate", (state) => {
+    // 아직 게임 시작 전(준비 대기 중) 인원/준비 상태 갱신
+    renderWaitingList(state);
+});
+
 socket.on("gameStart", (state) => {
-    showConnected(state.players);
+    showConnected();
     renderGame(state);
 });
 
@@ -309,12 +339,12 @@ socket.on("gameOver", ({ state, totals, winnerName }) => {
     renderGame(state);
 });
 
-// ✅ 상대가 나가도 나는 방에 그대로 남고, 다시 대기 화면으로만 전환
+// ✅ 상대가 나가도 나는 방에 그대로 남고, 다시 "준비" 대기 화면으로 전환
 socket.on("opponentLeft", ({ state }) => {
     showAlert("상대방이 방을 나갔습니다. 새로운 상대를 기다립니다...");
     gameOverText = "";
-    currentState = state;
     showWaiting();
+    renderWaitingList(state);
 });
 
 socket.on("emojiReceived", ({ emoji, fromId, fromName }) => {
@@ -357,6 +387,7 @@ $(function () {
     $("#btn-join").on("click", joinRoom);
     $("#btn-leave").on("click", leaveRoom);
     $("#btn-roll").on("click", rollDiceAction);
+    $("#btn-ready").on("click", toggleReady);
     $("#btn-secret-back").on("click", backToTitleFromSecret);
     $(".pixel-dice").on("click", handleDiceClick);
 

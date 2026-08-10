@@ -325,6 +325,12 @@ body::before {
     box-shadow: 0 0 8px rgba(255, 230, 0, 0.25);
 }
 
+.player-chip.chip-ready {
+    background: #1f4068;
+    border-color: #7CFC00;
+    box-shadow: 0 0 8px rgba(124, 252, 0, 0.4);
+}
+
 /* ---------------- 야추 게임 UI ---------------- */
 .turn-indicator {
     font-size: 13px;
