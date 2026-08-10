@@ -163,14 +163,18 @@ function renderGame(state) {
     if (!state.game) return;
     const game = state.game;
     const isMyTurn = game.turnPlayerId === socket.id;
-    const me = state.players.find((p) => p.id === socket.id);
     const opp = state.players.find((p) => p.id !== socket.id);
 
+    let turnText;
     if (game.status === "finished") {
-        $("#turn-indicator").html(gameOverText || "게임 종료");
+        turnText = gameOverText || "게임 종료";
     } else {
-        $("#turn-indicator").text(isMyTurn ? "🎯 내 차례입니다" : `${opp?.name ?? "상대"}의 차례를 기다리는 중`);
+        turnText = isMyTurn
+            ? `🎯 내 차례 · 굴림 ${game.rollsLeft}/3 남음`
+            : `${opp?.name ?? "상대"}의 차례를 기다리는 중`;
     }
+    $("#turn-indicator").html(turnText);
+    $("#score-modal-turn").html(turnText);
 
     renderDice(game, isMyTurn);
 
@@ -178,16 +182,60 @@ function renderGame(state) {
         .text(`🎲 굴리기 (${game.rollsLeft}/3)`)
         .prop("disabled", !isMyTurn || game.rollsLeft <= 0 || game.status === "finished");
 
-    renderScoreTables(state, isMyTurn);
+    renderScoreGrid(state, isMyTurn);
+}
+
+// ---- 3D 큐브 다이스 ----
+// 실제 정육면체처럼 마주보는 면의 합이 7이 되도록 고정 배치 (front=1/back=6, right=2/left=5, top=3/bottom=4)
+// 특정 눈을 정면으로 보이게 하려면 큐브 전체를 아래 각도로 회전시키면 됨
+const FACE_TRANSFORM = {
+    1: "rotateX(0deg) rotateY(0deg)",
+    6: "rotateX(0deg) rotateY(180deg)",
+    2: "rotateX(0deg) rotateY(-90deg)",
+    5: "rotateX(0deg) rotateY(90deg)",
+    3: "rotateX(-90deg) rotateY(0deg)",
+    4: "rotateX(90deg) rotateY(0deg)",
+};
+
+function pipPositions(n) {
+    switch (n) {
+        case 1: return ["e"];
+        case 2: return ["a", "i"];
+        case 3: return ["a", "e", "i"];
+        case 4: return ["a", "c", "g", "i"];
+        case 5: return ["a", "c", "e", "g", "i"];
+        case 6: return ["a", "c", "d", "f", "g", "i"];
+        default: return [];
+    }
+}
+
+function faceInnerHTML(n) {
+    return pipPositions(n).map((p) => `<span class="dot pos-${p}"></span>`).join("");
+}
+
+const DIE_FACES = [
+    { cls: "face-front", n: 1 },
+    { cls: "face-back", n: 6 },
+    { cls: "face-right", n: 2 },
+    { cls: "face-left", n: 5 },
+    { cls: "face-top", n: 3 },
+    { cls: "face-bottom", n: 4 },
+];
+
+function buildDieHTML(index, value, held, disabled) {
+    const facesHTML = DIE_FACES.map((f) => `<div class="face ${f.cls}">${faceInnerHTML(f.n)}</div>`).join("");
+    return `
+        <div class="die3d ${held ? "held" : ""} ${disabled ? "disabled" : ""}" data-index="${index}">
+            <div class="cube" style="transform:${FACE_TRANSFORM[value]}">${facesHTML}</div>
+        </div>
+    `;
 }
 
 function renderDice(game, isMyTurn) {
-    const faces = "⚀⚁⚂⚃⚄⚅";
+    const disabled = !isMyTurn || game.status === "finished";
     const $tray = $("#dice-tray").empty();
-    game.dice.forEach((d, i) => {
-        const $die = $(`<button type="button" class="die"></button>`).text(faces[d - 1]);
-        if (game.held[i]) $die.addClass("die-held");
-        if (!isMyTurn || game.status === "finished") $die.addClass("die-disabled");
+    game.dice.forEach((value, i) => {
+        const $die = $(buildDieHTML(i, value, game.held[i], disabled));
         $die.on("click", () => toggleHold(i));
         $tray.append($die);
     });
@@ -210,35 +258,24 @@ function rollDiceAction() {
     socket.emit("rollDice", { code: myCode });
 }
 
-// 실제 값이 서버에서 도착하기 전, 잠깐 여러 눈이 빠르게 스쳐가며 "진짜 굴러가는" 느낌을 줌
+// 실제 값이 서버에서 도착하기 전, 큐브가 여러 축으로 빠르게 굴러가는 느낌을 줌 (@keyframes cube-roll)
 function playRollAnimation(held) {
     isRollingAnim = true;
     $("#btn-roll").prop("disabled", true);
 
-    const faces = "⚀⚁⚂⚃⚄⚅";
-    const $diceEls = $("#dice-tray .die");
-    $diceEls.each(function (i) {
-        if (!held[i]) $(this).addClass("die-rolling");
+    $("#dice-tray .die3d").each(function (i) {
+        if (!held[i]) $(this).find(".cube").addClass("cube-rolling");
     });
 
-    let ticks = 0;
-    const totalTicks = 10; // 대략 10 * 70ms ≈ 0.7초 동안 눈이 계속 바뀜
-    const timer = setInterval(() => {
-        ticks++;
-        $diceEls.each(function (i) {
-            if (!held[i]) $(this).text(faces[Math.floor(Math.random() * 6)]);
-        });
-        if (ticks >= totalTicks) {
-            clearInterval(timer);
-            $diceEls.removeClass("die-rolling");
-            isRollingAnim = false;
-            // 애니메이션 도는 동안 서버 결과가 먼저 도착했다면 이제 반영, 아직이면 다음 stateUpdate에서 자연히 반영됨
-            if (pendingGameState) {
-                renderGame(pendingGameState);
-                pendingGameState = null;
-            }
+    setTimeout(() => {
+        $("#dice-tray .cube").removeClass("cube-rolling");
+        isRollingAnim = false;
+        // 애니메이션 도는 동안 서버 결과가 먼저 도착했다면 이제 반영(부드러운 트랜지션으로 정확한 면에 착지)
+        if (pendingGameState) {
+            renderGame(pendingGameState);
+            pendingGameState = null;
         }
-    }, 70);
+    }, 700);
 }
 
 function chooseCategory(key) {
@@ -248,47 +285,103 @@ function chooseCategory(key) {
     socket.emit("chooseCategory", { code: myCode, key });
 }
 
-function renderScoreTables(state, isMyTurn) {
+// ---- 확대된 점수판 (행=점수 항목, 열=플레이어) ----
+let previousScorecards = {}; // playerId -> 직전 렌더된 scorecard 스냅샷 (새로 채워진 칸 감지용)
+let previousBonus = {}; // playerId -> 직전 보너스 값 (63점 돌파 순간 감지용)
+
+function openScoreModal() {
+    $("#score-modal").css("display", "flex");
+}
+function closeScoreModal() {
+    $("#score-modal").hide();
+}
+
+function renderScoreGrid(state, isMyTurn) {
     const game = state.game;
     const me = state.players.find((p) => p.id === socket.id);
     const opp = state.players.find((p) => p.id !== socket.id);
     const selectable = isMyTurn && game.rollsLeft < 3 && game.status === "playing";
+    const meCard = game.scorecards[me?.id] || {};
+    const oppCard = opp ? game.scorecards[opp.id] || {} : null;
 
-    const $wrap = $("#score-tables").empty();
-    $wrap.append(buildScoreTable(me ? me.name + " (나)" : "나", game.scorecards[me?.id], selectable, game.dice));
+    const $grid = $("#score-grid").empty();
+
+    $grid.append(`<div class="score-cell score-head"></div>`);
+    $grid.append(`<div class="score-cell score-head">${me ? me.name + " (나)" : "나"}</div>`);
+    if (opp) $grid.append(`<div class="score-cell score-head">${opp.name}</div>`);
+
+    const prevMe = previousScorecards[me?.id];
+    const prevOpp = opp ? previousScorecards[opp.id] : null;
+
+    CATEGORIES.forEach(({ key, label }) => {
+        $grid.append(`<div class="score-cell score-label">${label}</div>`);
+
+        // 내 칸
+        const filled = typeof meCard[key] === "number";
+        const preview = !filled && game.dice ? scoreForClient(key, game.dice) : null;
+        const $meCell = $(`<div class="score-cell score-value"></div>`);
+        if (selectable && !filled) {
+            $meCell.addClass("score-selectable").on("click", () => chooseCategory(key));
+        }
+        if (!filled && preview !== null) $meCell.addClass("score-preview");
+        $meCell.text(filled ? meCard[key] : preview !== null ? preview : "-");
+        $grid.append($meCell);
+        if (filled && prevMe && typeof prevMe[key] !== "number") {
+            animateScorePop($meCell, meCard[key]);
+        }
+
+        // 상대 칸
+        if (opp) {
+            const oppFilled = oppCard && typeof oppCard[key] === "number";
+            const $oppCell = $(`<div class="score-cell score-value"></div>`).text(oppFilled ? oppCard[key] : "-");
+            $grid.append($oppCell);
+            if (oppFilled && prevOpp && typeof prevOpp[key] !== "number") {
+                animateScorePop($oppCell, oppCard[key]);
+            }
+        }
+    });
+
+    const meTotals = computeTotalsClient(meCard);
+    const oppTotals = opp ? computeTotalsClient(oppCard) : null;
+
+    $grid.append(`<div class="score-cell score-label score-row-strong">보너스(63↑)</div>`);
+    const $meBonus = $(`<div class="score-cell score-value score-row-strong"></div>`).text(`+${meTotals.bonus}`);
+    if (meTotals.bonus > 0 && (previousBonus[me?.id] ?? 0) === 0) $meBonus.addClass("bonus-celebrate");
+    $grid.append($meBonus);
     if (opp) {
-        $wrap.append(buildScoreTable(opp.name, game.scorecards[opp.id], false, null));
+        const $oppBonus = $(`<div class="score-cell score-value score-row-strong"></div>`).text(`+${oppTotals.bonus}`);
+        if (oppTotals.bonus > 0 && (previousBonus[opp.id] ?? 0) === 0) $oppBonus.addClass("bonus-celebrate");
+        $grid.append($oppBonus);
+    }
+
+    $grid.append(`<div class="score-cell score-label score-row-strong">총점</div>`);
+    $grid.append(`<div class="score-cell score-value score-row-strong score-total">${meTotals.total}</div>`);
+    if (opp) $grid.append(`<div class="score-cell score-value score-row-strong score-total">${oppTotals.total}</div>`);
+
+    previousScorecards[me?.id] = { ...meCard };
+    previousBonus[me?.id] = meTotals.bonus;
+    if (opp) {
+        previousScorecards[opp.id] = { ...oppCard };
+        previousBonus[opp.id] = oppTotals.bonus;
     }
 }
 
-function buildScoreTable(title, card, selectable, dice) {
-    const $table = $(`<div class="score-table"></div>`);
-    $table.append(`<div class="score-table-title">${title}</div>`);
-
-    CATEGORIES.forEach(({ key, label }) => {
-        const filled = card && typeof card[key] === "number";
-        const preview = !filled && dice ? scoreForClient(key, dice) : null;
-        const $row = $(`<button type="button" class="score-row"></button>`);
-        if (selectable && !filled) {
-            $row.addClass("score-row-selectable").on("click", () => chooseCategory(key));
+// 점수 확정 시: 팝(튀어오름) + 0에서부터 카운트업
+function animateScorePop($cell, value) {
+    $cell.addClass("score-pop");
+    const duration = 400;
+    const startTime = performance.now();
+    function step(now) {
+        const progress = Math.min(1, (now - startTime) / duration);
+        $cell.text(Math.round(progress * value));
+        if (progress < 1) {
+            requestAnimationFrame(step);
         } else {
-            $row.prop("disabled", true);
+            $cell.text(value);
+            setTimeout(() => $cell.removeClass("score-pop"), 300);
         }
-        $row.append(`<span class="score-row-label">${label}</span>`);
-        $row.append(
-            `<span class="score-row-value">${filled ? card[key] : preview !== null ? preview : "-"}</span>`
-        );
-        $table.append($row);
-    });
-
-    const totals = computeTotalsClient(card || {});
-    $table.append(
-        `<div class="score-row score-row-bonus"><span>보너스(${totals.upper}/63)</span><span>+${totals.bonus}</span></div>`
-    );
-    $table.append(
-        `<div class="score-row score-row-total"><span>총점</span><span>${totals.total}</span></div>`
-    );
-    return $table;
+    }
+    requestAnimationFrame(step);
 }
 
 let gameOverText = "";
@@ -388,6 +481,11 @@ $(function () {
     $("#btn-leave").on("click", leaveRoom);
     $("#btn-roll").on("click", rollDiceAction);
     $("#btn-ready").on("click", toggleReady);
+    $("#btn-open-score").on("click", openScoreModal);
+    $("#btn-close-score").on("click", closeScoreModal);
+    $("#score-modal").on("click", function (e) {
+        if (e.target === this) closeScoreModal(); // 배경(바깥쪽) 클릭 시에도 닫기
+    });
     $("#btn-secret-back").on("click", backToTitleFromSecret);
     $(".pixel-dice").on("click", handleDiceClick);
 
