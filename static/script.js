@@ -1,5 +1,5 @@
 // ⚠️ 여기를 본인의 Render 백엔드 주소로 바꿔주세요.
-const SERVER_URL = "https://your-backend.onrender.com";
+const SERVER_URL = "https://lobby-backend-ddu9.onrender.com/";
 
 const socket = io(SERVER_URL);
 let myCode = null;
