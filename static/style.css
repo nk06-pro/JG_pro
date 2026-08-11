@@ -77,11 +77,13 @@ body::before {
     padding: 20px 0;
     position: relative;
     z-index: 1;
+    transition: width 0.25s ease;
 }
 
-/* 방/게임 화면에서는 점수판 2개가 나란히 들어가도록 더 넓게 */
-.wrap:has(#room-screen:not([style*="display: none"])) {
-    width: 480px;
+/* ✅ 로비/대기실까지는 항상 이 좁은 폭(420px)으로 폰/PC 동일 — JS가 게임 시작 시에만 .in-game 클래스를 붙임 */
+.wrap.in-game {
+    width: 680px;
+    max-width: 96vw;
 }
 
 /* ---------------- 타이틀 박스 (아케이드 캐비닛 화면) ---------------- */
@@ -289,6 +291,17 @@ body::before {
     box-shadow: 2px 2px 0px #000000, 0 0 12px rgba(255, 230, 0, 0.4);
 }
 
+/* 준비 완료 상태 */
+.btn-arcade.is-ready {
+    background-color: #2e9e44;
+    border-color: #ffffff;
+    box-shadow: 3px 3px 0px #000000, 0 0 12px rgba(46, 158, 68, 0.6);
+}
+
+.btn-arcade.is-ready:hover {
+    filter: brightness(1.1);
+}
+
 .btn-arcade:active, .btn-arcade-outline:active {
     transform: translate(2px, 2px);
     box-shadow: 1px 1px 0px #000000;
@@ -340,13 +353,6 @@ body::before {
 }
 
 /* ---- 3D 큐브 다이스 ---- */
-.dice-scene {
-    display: flex;
-    justify-content: center;
-    gap: 14px;
-    margin-bottom: 16px;
-    perspective: 300px; /* 입체감의 핵심 — 이 값이 클수록 원근감이 완만해짐 */
-}
 
 .die3d {
     width: 44px;
@@ -426,92 +432,121 @@ body::before {
     100% { transform: rotateX(1260deg) rotateY(1260deg); }
 }
 
-/* ---- 점수판: 확대된 풀스크린 모달 ---- */
-.score-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 200;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    background: rgba(5, 5, 15, 0.82);
-    backdrop-filter: blur(2px);
-    padding: 16px;
+/* ---- 인게임 보드: 사이드 점수판 + 트레이형 주사위판을 한 화면에 상시 표시 ---- */
+.game-board {
+    position: relative;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
 }
 
-.score-modal-inner {
-    width: 100%;
-    max-width: 480px;
-    max-height: 88vh;
+.corner-leave-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    border: 2px solid #ffffff;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 40;
+    box-shadow: 2px 2px 0 #000;
+}
+
+.score-panel {
+    flex: 1.35;
+    min-width: 0;
     background: linear-gradient(160deg, #1b2a4a, #101a33);
     border: 3px solid #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 12px 0 #000000, 0 0 40px rgba(228, 63, 90, 0.25);
+    border-radius: 10px;
+    box-shadow: 4px 4px 0 #000000;
+    padding: 8px;
+    max-height: 440px;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
 }
 
-.score-modal-header {
+.score-panel-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 14px;
+    padding: 2px 4px 6px;
     border-bottom: 2px solid rgba(255, 255, 255, 0.15);
-    flex: 0 0 auto;
+    margin-bottom: 4px;
 }
 
-.score-modal-turn {
-    font-size: 13px;
+.turn-counter {
+    font-family: 'Gaegu', sans-serif;
     font-weight: bold;
+    font-size: 13px;
     color: #ffe600;
 }
 
-.score-modal-close {
-    background: #e43f5a;
-    border: 2px solid #ffffff;
-    color: #ffffff;
-    width: 30px;
-    height: 30px;
+.player-avatars {
+    display: flex;
+    gap: 4px;
+}
+
+.avatar {
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
     font-weight: bold;
-    cursor: pointer;
-    box-shadow: 2px 2px 0 #000;
+    color: #1b1b2f;
+    background: #ffe600;
+    border: 2px solid #ffffff;
+}
+
+.avatar.avatar-turn {
+    background: #7CFC00;
+    box-shadow: 0 0 8px rgba(124, 252, 0, 0.7);
+}
+
+.score-panel .turn-indicator {
+    font-size: 12px;
+    margin: 0 0 6px;
 }
 
 .score-grid {
     display: grid;
     grid-template-columns: 1.5fr 1fr 1fr;
     overflow-y: auto;
-    padding: 8px;
 }
 
 .score-cell {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 9px 6px;
-    font-size: 13px;
+    padding: 7px 5px;
+    font-size: 12px;
     color: #d7d7ff;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .score-label {
     justify-content: flex-start;
-    font-size: 12.5px;
+    font-size: 11.5px;
 }
 
 .score-head {
     font-family: 'Gaegu', 'Jua', sans-serif;
     font-weight: bold;
-    font-size: 15px;
+    font-size: 13px;
     color: #ffe600;
     border-bottom: 2px solid rgba(255, 230, 0, 0.4);
 }
 
 .score-value {
     font-weight: bold;
-    font-size: 15px;
+    font-size: 13.5px;
 }
 
 .score-preview {
@@ -539,7 +574,7 @@ body::before {
 
 .score-total {
     color: #7CFC00;
-    font-size: 17px;
+    font-size: 15px;
 }
 
 /* 점수 확정 시 튀어오르는 팝 효과 */
@@ -565,16 +600,56 @@ body::before {
     50% { transform: scale(1.35); }
 }
 
-@media (max-width: 480px) {
-    .score-modal-inner {
-        max-width: 100%;
-        max-height: 100%;
-        height: 100%;
-        border-radius: 0;
-        border-width: 0;
+/* ---- 주사위 트레이(사진 속 붉은 펠트 트레이 느낌) ---- */
+.dice-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.dice-tray-visual {
+    width: 100%;
+    aspect-ratio: 1;
+    max-width: 260px;
+    border-radius: 20px;
+    background:
+        radial-gradient(circle at 50% 40%, #8a1f2f 0%, #5c1420 65%, #3d0d16 100%);
+    border: 6px solid #c9c9d4;
+    box-shadow:
+        inset 0 0 24px rgba(0, 0, 0, 0.6),
+        0 8px 0 #000000,
+        0 0 30px rgba(228, 63, 90, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+}
+
+.dice-scene {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-content: center;
+    gap: 12px;
+    perspective: 300px; /* 입체감의 핵심 — 이 값이 클수록 원근감이 완만해짐 */
+}
+
+@media (max-width: 640px) {
+    .game-board {
+        flex-direction: column;
     }
-    .score-modal {
-        padding: 0;
+    .score-panel {
+        max-height: 260px;
+        width: 100%;
+    }
+    .dice-panel {
+        width: 100%;
+    }
+    .dice-tray-visual {
+        max-width: 220px;
+        margin: 0 auto;
     }
 }
 .emoji-bar {

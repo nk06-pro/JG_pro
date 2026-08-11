@@ -65,8 +65,6 @@
 
         <!-- 2. 대기실 화면 (방 생성/참가 후) -->
         <div id="room-screen" style="display:none;">
-            <button id="btn-leave" class="corner-leave-btn" type="button" title="나가기 (ESC)">✕</button>
-
             <div class="mytitle mytitle-small">
                 <div class="mytitle-crt">
                     <h2 id="room-code-display">------</h2>
@@ -80,18 +78,27 @@
                     <div class="spinner-border text-light" role="status"></div>
                     <div id="waiting-player-list" class="mt-3"></div>
                     <button id="btn-ready" class="btn btn-arcade w-100 mt-2" style="display:none;">✅ 준비하기</button>
+                    <button id="btn-leave-waiting" class="btn btn-arcade-outline w-100 mt-3">로비로 나가기</button>
                 </div>
 
                 <div id="connected-area" style="display:none;">
-                    <p class="turn-indicator" id="turn-indicator">-</p>
+                    <!-- 인게임 전용: 작은 X 버튼 (ESC 로도 나가짐) -->
+                    <button id="btn-leave-game" class="corner-leave-btn" type="button" title="나가기 (ESC)">✕</button>
 
-                    <!-- 점수판 + 주사위를 한 화면에 상시 표시 (모달 없음) -->
-                    <div class="game-layout">
+                    <div class="game-board">
                         <div class="score-panel">
+                            <div class="score-panel-header">
+                                <span id="turn-counter" class="turn-counter">Turn -/12</span>
+                                <div id="player-avatars" class="player-avatars"></div>
+                            </div>
+                            <p class="turn-indicator" id="turn-indicator">-</p>
                             <div id="score-grid" class="score-grid"></div>
                         </div>
+
                         <div class="dice-panel">
-                            <div class="dice-scene" id="dice-tray"></div>
+                            <div class="dice-tray-visual">
+                                <div class="dice-scene" id="dice-tray"></div>
+                            </div>
                             <button id="btn-roll" class="btn btn-arcade w-100">🎲 굴리기</button>
                         </div>
                     </div>

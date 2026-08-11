@@ -58,11 +58,13 @@ function enterRoomScreen(code) {
 function showWaiting() {
     $("#waiting-area").show();
     $("#connected-area").hide();
+    $(".wrap").removeClass("in-game"); // ✅ 로비/대기실은 항상 좁은 폭으로 폰/PC 동일하게
 }
 
 function showConnected() {
     $("#waiting-area").hide();
     $("#connected-area").show();
+    $(".wrap").addClass("in-game"); // ✅ 실제 게임이 시작된 순간에만 넓은 보드 레이아웃으로 전환
 }
 
 // 대기실: 참가자 목록 + 준비 상태 표시, 2명이 모이면 준비 버튼 노출
@@ -83,7 +85,12 @@ function renderWaitingList(state) {
         .map((p) => `<span class="player-chip ${p.ready ? "chip-ready" : ""}">${p.name} ${p.ready ? "✅" : "⏳"}</span>`)
         .join("");
     $("#waiting-player-list").html(chips);
-    $("#btn-ready").show().text(me?.ready ? "🔁 준비 취소" : "✅ 준비하기");
+
+    const iAmReady = !!me?.ready;
+    $("#btn-ready")
+        .show()
+        .text(iAmReady ? "🔁 준비 취소" : "✅ 준비하기")
+        .toggleClass("is-ready", iAmReady); // ✅ 준비 완료 시 초록색으로
 }
 
 function toggleReady() {
@@ -95,6 +102,7 @@ function toggleReady() {
 function leaveRoom() {
     if (myCode) socket.emit("leaveRoom", { code: myCode });
     myCode = null;
+    $(".wrap").removeClass("in-game");
     $("#room-screen").hide();
     $("#title-screen").show();
     $("#input-code").val("");
@@ -163,6 +171,7 @@ function renderGame(state) {
     if (!state.game) return;
     const game = state.game;
     const isMyTurn = game.turnPlayerId === socket.id;
+    const me = state.players.find((p) => p.id === socket.id);
     const opp = state.players.find((p) => p.id !== socket.id);
 
     let turnText;
@@ -174,7 +183,21 @@ function renderGame(state) {
             : `${opp?.name ?? "상대"}의 차례를 기다리는 중`;
     }
     $("#turn-indicator").html(turnText);
-    $("#score-modal-turn").html(turnText);
+
+    // 턴 카운터: 현재 턴인 사람이 지금까지 채운 칸 수 + 1 / 전체 12칸
+    const turnOwnerCard = game.scorecards[game.turnPlayerId] || {};
+    const filledCount = CATEGORIES.filter(({ key }) => typeof turnOwnerCard[key] === "number").length;
+    const turnNumber = game.status === "finished" ? CATEGORIES.length : Math.min(CATEGORIES.length, filledCount + 1);
+    $("#turn-counter").text(`Turn ${turnNumber}/${CATEGORIES.length}`);
+
+    // 아바타: 현재 턴인 플레이어를 초록색으로 강조
+    const $avatars = $("#player-avatars").empty();
+    state.players.forEach((p) => {
+        const isTurn = p.id === game.turnPlayerId && game.status !== "finished";
+        $avatars.append(
+            `<span class="avatar ${isTurn ? "avatar-turn" : ""}" title="${p.name}">${(p.name || "?")[0]}</span>`
+        );
+    });
 
     renderDice(game, isMyTurn);
 
@@ -288,13 +311,6 @@ function chooseCategory(key) {
 // ---- 확대된 점수판 (행=점수 항목, 열=플레이어) ----
 let previousScorecards = {}; // playerId -> 직전 렌더된 scorecard 스냅샷 (새로 채워진 칸 감지용)
 let previousBonus = {}; // playerId -> 직전 보너스 값 (63점 돌파 순간 감지용)
-
-function openScoreModal() {
-    $("#score-modal").css("display", "flex");
-}
-function closeScoreModal() {
-    $("#score-modal").hide();
-}
 
 function renderScoreGrid(state, isMyTurn) {
     const game = state.game;
@@ -473,19 +489,22 @@ function backToTitleFromSecret() {
     $("#title-screen").show();
 }
 
+// ✅ ESC는 실제 게임 화면(connected-area)에 있을 때만 나가기로 동작
+$(document).on("keydown", (e) => {
+    if (e.key === "Escape" && $("#connected-area").is(":visible")) {
+        leaveRoom();
+    }
+});
+
 // ---- 버튼 이벤트 바인딩 ----
 $(function () {
     $("#btn-create").on("click", createRoom);
     $("#btn-show-join").on("click", () => $("#join-area").slideToggle(150));
     $("#btn-join").on("click", joinRoom);
-    $("#btn-leave").on("click", leaveRoom);
+    $("#btn-leave-waiting").on("click", leaveRoom); // 대기실: 일반 나가기 버튼
+    $("#btn-leave-game").on("click", leaveRoom); // 인게임: 작은 X 버튼
     $("#btn-roll").on("click", rollDiceAction);
     $("#btn-ready").on("click", toggleReady);
-    $("#btn-open-score").on("click", openScoreModal);
-    $("#btn-close-score").on("click", closeScoreModal);
-    $("#score-modal").on("click", function (e) {
-        if (e.target === this) closeScoreModal(); // 배경(바깥쪽) 클릭 시에도 닫기
-    });
     $("#btn-secret-back").on("click", backToTitleFromSecret);
     $(".pixel-dice").on("click", handleDiceClick);
 
