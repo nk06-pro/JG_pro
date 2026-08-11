@@ -20,6 +20,7 @@ const io = new Server(server, {
 
 // 방 상태: code -> { players:[{id,name}], game: {...} | null }
 const rooms = new Map();
+const MAX_ROOMS = 300; // 동시 활성 방 상한선 (서버 자원 보호용 안전장치)
 
 function makeRoomCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 헷갈리는 글자(0,O,1,I) 제외
@@ -34,7 +35,7 @@ function freshGame(players) {
   const scorecards = {};
   players.forEach((p) => (scorecards[p.id] = emptyScorecard()));
   return {
-    dice: [1, 1, 1, 1, 1],
+    dice: [6, 6, 6, 6, 6],
     held: [false, false, false, false, false],
     rollsLeft: 3,
     turnIndex: 0,
@@ -82,12 +83,15 @@ io.on("connection", (socket) => {
 
   // 방 생성
   socket.on("createRoom", ({ name }, callback) => {
+    if (rooms.size >= MAX_ROOMS) {
+      return callback?.({ ok: false, message: "지금 사람이 몰려서 방을 더 만들 수 없어요. 잠시 후 다시 시도해주세요." });
+    }
     const code = makeRoomCode();
     const room = { code, players: [{ id: socket.id, name: (name || "P1").slice(0, 8), ready: false }], game: null };
     rooms.set(code, room);
     socket.join(code);
     callback?.({ ok: true, code, state: publicState(room) });
-    console.log(`방 생성: ${code}`);
+    console.log(`방 생성: ${code} (현재 ${rooms.size}/${MAX_ROOMS})`);
   });
 
   // 방 참가 — 자동으로 게임을 시작하지 않고, 준비 대기 상태로만 만듦
@@ -154,7 +158,7 @@ io.on("connection", (socket) => {
     if (typeof room.game.scorecards[socket.id][key] === "number") return; // 이미 사용한 칸
 
     room.game.scorecards[socket.id][key] = scoreFor(key, room.game.dice);
-    room.game.dice = [1, 1, 1, 1, 1];
+    room.game.dice = [6, 6, 6, 6, 6];
     room.game.held = [false, false, false, false, false];
     room.game.rollsLeft = 3;
 

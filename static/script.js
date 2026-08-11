@@ -1,5 +1,5 @@
 // ⚠️ 여기를 본인의 Render 백엔드 주소로 바꿔주세요.
-const SERVER_URL = "https://lobby-backend-ddu9.onrender.com/";
+const SERVER_URL = "https://your-backend.onrender.com";
 
 const socket = io(SERVER_URL);
 let myCode = null;
@@ -329,7 +329,7 @@ function renderScoreGrid(state, isMyTurn) {
     const prevMe = previousScorecards[me?.id];
     const prevOpp = opp ? previousScorecards[opp.id] : null;
 
-    CATEGORIES.forEach(({ key, label }) => {
+    function appendCategoryRow(key, label) {
         $grid.append(`<div class="score-cell score-label">${label}</div>`);
 
         // 내 칸
@@ -355,10 +355,13 @@ function renderScoreGrid(state, isMyTurn) {
                 animateScorePop($oppCell, oppCard[key]);
             }
         }
-    });
+    }
 
     const meTotals = computeTotalsClient(meCard);
     const oppTotals = opp ? computeTotalsClient(oppCard) : null;
+
+    // ✅ 상단(에이스~식스) 먼저 → 그 바로 아래 보너스 칸 → 그다음 하단 항목들
+    CATEGORIES.filter(({ key }) => UPPER_KEYS.includes(key)).forEach(({ key, label }) => appendCategoryRow(key, label));
 
     $grid.append(`<div class="score-cell score-label score-row-strong">보너스(63↑)</div>`);
     const $meBonus = $(`<div class="score-cell score-value score-row-strong"></div>`).text(`+${meTotals.bonus}`);
@@ -369,6 +372,9 @@ function renderScoreGrid(state, isMyTurn) {
         if (oppTotals.bonus > 0 && (previousBonus[opp.id] ?? 0) === 0) $oppBonus.addClass("bonus-celebrate");
         $grid.append($oppBonus);
     }
+
+    // ✅ 하단(초이스~야추) 항목들
+    CATEGORIES.filter(({ key }) => !UPPER_KEYS.includes(key)).forEach(({ key, label }) => appendCategoryRow(key, label));
 
     $grid.append(`<div class="score-cell score-label score-row-strong">총점</div>`);
     $grid.append(`<div class="score-cell score-value score-row-strong score-total">${meTotals.total}</div>`);
@@ -421,6 +427,31 @@ function spawnFloatingEmoji(emoji, name, isMine) {
     setTimeout(() => $wrap.remove(), 1600);
 }
 
+// ---- 승리 이펙트 (컨페티 + 배너) ----
+const CONFETTI_COLORS = ["#ffe600", "#e43f5a", "#4091ff", "#7CFC00", "#ff8f6b", "#ffffff"];
+
+function playConfetti() {
+    const $layer = $("#reaction-layer");
+    for (let i = 0; i < 40; i++) {
+        const $piece = $('<span class="confetti-piece"></span>');
+        $piece.css({
+            left: Math.random() * 100 + "%",
+            background: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+            animationDelay: Math.random() * 0.4 + "s",
+            animationDuration: 1.6 + Math.random() * 1.2 + "s",
+            transform: `rotate(${Math.floor(Math.random() * 360)}deg)`,
+        });
+        $layer.append($piece);
+        setTimeout(() => $piece.remove(), 3200);
+    }
+}
+
+function showVictoryBanner(text) {
+    const $banner = $(`<div class="victory-banner">${text}</div>`);
+    $("#reaction-layer").append($banner);
+    setTimeout(() => $banner.remove(), 3200);
+}
+
 // ---- 서버 이벤트 수신 ----
 socket.on("roomUpdate", (state) => {
     // 아직 게임 시작 전(준비 대기 중) 인원/준비 상태 갱신
@@ -446,6 +477,13 @@ socket.on("gameOver", ({ state, totals, winnerName }) => {
         ? `🎉 ${winnerName} 승리! (${scoreLine})`
         : `무승부! (${scoreLine})`;
     renderGame(state);
+
+    if (winnerName) {
+        playConfetti();
+        showVictoryBanner(`🎉 ${winnerName} 승리!`);
+    } else {
+        showVictoryBanner(`🤝 무승부!`);
+    }
 });
 
 // ✅ 상대가 나가도 나는 방에 그대로 남고, 다시 "준비" 대기 화면으로 전환

@@ -86,6 +86,32 @@ body::before {
     max-width: 96vw;
 }
 
+/* ✅ 데스크탑(충분히 넓은 화면)에서는 게임 화면 전체를 한 단계 더 키움 — 폰 크기는 그대로 유지 */
+@media (min-width: 760px) {
+    .wrap.in-game {
+        width: 800px;
+    }
+    :root {
+        --die-size: 56px;
+    }
+    .dice-tray-visual {
+        max-width: 320px;
+    }
+    .score-panel {
+        max-height: 520px;
+    }
+    .score-cell {
+        padding: 10px 8px;
+        font-size: 14px;
+    }
+    .score-value {
+        font-size: 16px;
+    }
+    .score-total {
+        font-size: 18px;
+    }
+}
+
 /* ---------------- 타이틀 박스 (아케이드 캐비닛 화면) ---------------- */
 .mytitle {
     position: relative;
@@ -353,10 +379,13 @@ body::before {
 }
 
 /* ---- 3D 큐브 다이스 ---- */
+:root {
+    --die-size: 44px; /* 데스크탑 미디어쿼리에서 더 큰 값으로 덮어씀 */
+}
 
 .die3d {
-    width: 44px;
-    height: 44px;
+    width: var(--die-size);
+    height: var(--die-size);
     cursor: pointer;
     transition: transform 0.15s ease;
 }
@@ -380,8 +409,8 @@ body::before {
 
 .face {
     position: absolute;
-    width: 44px;
-    height: 44px;
+    width: var(--die-size);
+    height: var(--die-size);
     background: linear-gradient(160deg, #f5f5f5, #d8d8e0);
     border: 2px solid #1b1b2f;
     border-radius: 8px;
@@ -393,12 +422,12 @@ body::before {
     box-sizing: border-box;
 }
 
-.face-front  { transform: translateZ(22px); }
-.face-back   { transform: rotateY(180deg) translateZ(22px); }
-.face-right  { transform: rotateY(90deg) translateZ(22px); }
-.face-left   { transform: rotateY(-90deg) translateZ(22px); }
-.face-top    { transform: rotateX(90deg) translateZ(22px); }
-.face-bottom { transform: rotateX(-90deg) translateZ(22px); }
+.face-front  { transform: translateZ(calc(var(--die-size) / 2)); }
+.face-back   { transform: rotateY(180deg) translateZ(calc(var(--die-size) / 2)); }
+.face-right  { transform: rotateY(90deg) translateZ(calc(var(--die-size) / 2)); }
+.face-left   { transform: rotateY(-90deg) translateZ(calc(var(--die-size) / 2)); }
+.face-top    { transform: rotateX(90deg) translateZ(calc(var(--die-size) / 2)); }
+.face-bottom { transform: rotateX(-90deg) translateZ(calc(var(--die-size) / 2)); }
 
 .dot {
     width: 100%;
@@ -687,6 +716,51 @@ body::before {
     overflow: hidden;
 }
 
+/* ---- 승리 컨페티 ---- */
+.confetti-piece {
+    position: absolute;
+    top: -20px;
+    width: 8px;
+    height: 14px;
+    opacity: 0.95;
+    animation-name: confetti-fall;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+}
+
+@keyframes confetti-fall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(420px) rotate(540deg); opacity: 0; }
+}
+
+/* ---- 승리/무승부 배너 ---- */
+.victory-banner {
+    position: absolute;
+    top: 38%;
+    left: 50%;
+    z-index: 60;
+    background: linear-gradient(135deg, #ffe600, #ffc145);
+    color: #1b1b2f;
+    font-family: 'Gaegu', sans-serif;
+    font-weight: bold;
+    font-size: 20px;
+    padding: 16px 26px;
+    border-radius: 14px;
+    border: 3px solid #ffffff;
+    box-shadow: 0 10px 0 rgba(0, 0, 0, 0.4), 0 0 40px rgba(255, 230, 0, 0.6);
+    text-align: center;
+    white-space: nowrap;
+    animation: victory-pop 3.2s ease forwards;
+}
+
+@keyframes victory-pop {
+    0%   { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+    15%  { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+    25%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    85%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1) translateY(-16px); }
+}
+
 .floating-emoji-wrap {
     position: absolute;
     bottom: 10%;
@@ -738,7 +812,8 @@ body::before {
 /* ---------------- 접근성: 모션 최소화 환경 배려 ---------------- */
 @media (prefers-reduced-motion: reduce) {
     .bg-stars, .pixel-dice, .insert-coin, .floating-emoji-wrap,
-    .cube, .cube-rolling, .score-pop, .bonus-celebrate {
+    .cube, .cube-rolling, .score-pop, .bonus-celebrate,
+    .confetti-piece, .victory-banner {
         animation: none !important;
         transition: none !important;
     }
