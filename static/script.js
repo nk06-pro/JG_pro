@@ -1,5 +1,5 @@
 // ⚠️ 여기를 본인의 Render 백엔드 주소로 바꿔주세요.
-const SERVER_URL = "https://lobby-backend-ddu9.onrender.com/";
+const SERVER_URL = "https://your-backend.onrender.com";
 
 const socket = io(SERVER_URL);
 let myCode = null;
@@ -14,6 +14,43 @@ function getOrCreateClientId() {
     return id;
 }
 const myClientId = getOrCreateClientId();
+
+// ---- 배경음악 (BGM) ----
+// 브라우저는 사용자가 아무것도 누르기 전엔 소리 있는 오디오 자동재생을 막기 때문에,
+// "처음 클릭/터치하는 순간"에 몰래 재생을 시작하는 방식으로 우회합니다.
+const bgm = document.getElementById("bgm");
+bgm.volume = 0.35;
+
+let bgmMuted = localStorage.getItem("mp_bgm_muted") === "1";
+let bgmStarted = false;
+
+function updateMuteButton() {
+    $("#btn-mute").text(bgmMuted ? "🔇" : "🔊");
+}
+updateMuteButton();
+
+function startBgmIfNeeded() {
+    if (bgmStarted || bgmMuted) return;
+    bgm.play().catch(() => {
+        /* 자동재생이 막혔으면 다음 상호작용 때 다시 시도됨 (아래 리스너가 계속 살아있음) */
+    });
+    bgmStarted = true;
+}
+
+function toggleMute() {
+    bgmMuted = !bgmMuted;
+    localStorage.setItem("mp_bgm_muted", bgmMuted ? "1" : "0");
+    updateMuteButton();
+    if (bgmMuted) {
+        bgm.pause();
+    } else {
+        bgm.play().catch(() => {});
+        bgmStarted = true;
+    }
+}
+
+// 페이지 어디를 처음 클릭/터치하든 그 순간 BGM 재생을 시도 (자동재생 정책 우회)
+$(document).one("click touchstart", startBgmIfNeeded);
 
 const EMOJIS = ["👍", "😂", "🔥", "❤️", "😮", "😢"];
 
@@ -679,6 +716,10 @@ $(function () {
     $("#btn-ready").on("click", toggleReady);
     $("#btn-secret-back").on("click", backToTitleFromSecret);
     $("#vn-textbox").on("click", vnNext);
+    $("#btn-mute").on("click", (e) => {
+        e.stopPropagation(); // 타이틀 화면 배경 클릭(다이스 굴리기)으로 안 번지게
+        toggleMute();
+    });
 
     // ✅ 다이스 아이콘뿐 아니라 타이틀 화면 배경 어디를 클릭해도 굴러가게 (버튼/입력창은 제외)
     $("#title-screen").on("click", (e) => {

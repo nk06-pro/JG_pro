@@ -473,6 +473,27 @@ body::before {
     box-shadow: 2px 2px 0 #000;
 }
 
+/* 배경음악 음소거 토글 — 화면 어디서든 항상 우상단 고정 */
+.mute-btn {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    border: 2px solid #ffffff;
+    color: #ffffff;
+    font-size: 15px;
+    cursor: pointer;
+    z-index: 300;
+    box-shadow: 2px 2px 0 #000;
+}
+
+.mute-btn:hover {
+    filter: brightness(1.2);
+}
+
 .score-panel {
     flex: 1.35;
     min-width: 0;
