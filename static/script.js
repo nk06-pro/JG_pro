@@ -52,6 +52,17 @@ function toggleMute() {
 // 페이지 어디를 처음 클릭/터치하든 그 순간 BGM 재생을 시도 (자동재생 정책 우회)
 $(document).one("click touchstart", startBgmIfNeeded);
 
+// ---- 주사위 굴림 효과음 ----
+// 클릭 이벤트 안에서 바로 재생하는 거라 자동재생 정책의 영향을 안 받아요.
+const sfxDice = document.getElementById("sfx-dice");
+sfxDice.volume = 0.6;
+
+function playDiceSfx() {
+    if (bgmMuted) return; // 우측 상단 음소거 버튼과 함께 꺼짐
+    sfxDice.currentTime = 0; // 연타해도 항상 처음부터 다시 재생
+    sfxDice.play().catch(() => {});
+}
+
 const EMOJIS = ["👍", "😂", "🔥", "❤️", "😮", "😢"];
 
 function showAlert(message) {
@@ -367,6 +378,7 @@ let pendingGameState = null;
 function rollDiceAction() {
     const game = currentState?.game;
     if (!game || game.turnPlayerId !== myClientId || game.rollsLeft <= 0 || isRollingAnim) return;
+    playDiceSfx();
     playRollAnimation(game.held);
     socket.emit("rollDice", { code: myCode });
 }
@@ -616,6 +628,7 @@ function buildTitleDie() {
 
 function rollTitleDie() {
     diceClickCount += 1;
+    playDiceSfx();
 
     const $cube = $("#title-die .cube");
     $cube.addClass("cube-rolling");
