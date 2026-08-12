@@ -143,32 +143,19 @@ body::before {
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 3px;
     background: rgba(0, 0, 0, 0.15);
-    perspective: 400px; /* 아래 3D 텀블링 애니메이션의 입체감을 위해 필요 */
+    perspective: 400px; /* 아래 3D 큐브 다이스의 입체감을 위해 필요 */
+    cursor: pointer; /* 박스(바탕화면) 전체를 눌러도 다이스가 굴러가게 */
 }
 
-.pixel-dice {
-    width: 40px;
-    height: 40px;
-    margin-bottom: 10px;
-    filter: drop-shadow(0 0 6px rgba(228, 63, 90, 0.8));
-    animation: dice-float 2.6s ease-in-out infinite;
-    cursor: pointer;
-    transform-style: preserve-3d;
+/* 타이틀 화면의 3D 큐브 다이스 (인게임과 같은 .die3d/.cube/.face 구조 재사용) */
+.title-die {
+    --die-size: 40px; /* 이 안에서만 적용되는 크기 — 인게임 다이스 크기와 별개 */
+    margin: 0 auto 10px;
+    filter: drop-shadow(0 0 6px rgba(228, 63, 90, 0.6));
+    animation: title-die-float 2.6s ease-in-out infinite;
 }
 
-.pixel-dice.dice-clicked {
-    animation: dice-float 2.6s ease-in-out infinite, dice-tumble 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes dice-tumble {
-    0%   { transform: rotateX(0deg) rotateY(0deg) scale(1); }
-    25%  { transform: rotateX(180deg) rotateY(90deg) scale(1.15); }
-    50%  { transform: rotateX(360deg) rotateY(270deg) scale(0.9); }
-    75%  { transform: rotateX(540deg) rotateY(450deg) scale(1.15); }
-    100% { transform: rotateX(720deg) rotateY(720deg) scale(1); }
-}
-
-@keyframes dice-float {
+@keyframes title-die-float {
     0%, 100% { transform: translateY(0) rotate(-2deg); }
     50% { transform: translateY(-4px) rotate(2deg); }
 }
@@ -809,11 +796,118 @@ body::before {
     }
 }
 
+/* ---------------- 미연시(비주얼 노벨) 기본 뼈대 ---------------- */
+.vn-root {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.vn-stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 3px solid #ffffff;
+    background: linear-gradient(160deg, #2b2b52 0%, #0f3460 100%);
+    box-shadow: 4px 4px 0 #000000;
+}
+
+.vn-background {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.vn-character {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: bottom center;
+}
+
+.vn-placeholder {
+    position: absolute;
+    inset: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 6px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.55);
+    border: 2px dashed rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.vn-placeholder span {
+    font-size: 10.5px;
+    color: rgba(255, 255, 255, 0.35);
+    line-height: 1.5;
+}
+
+.vn-char-placeholder {
+    inset: 40% 8px 8px 8px; /* 배경 플레이스홀더와 안 겹치게 아래쪽에만 */
+}
+
+.vn-textbox {
+    position: relative;
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid #ffffff;
+    border-radius: 10px;
+    padding: 16px 16px 14px;
+    cursor: pointer;
+    min-height: 70px;
+    box-shadow: 3px 3px 0 #000000;
+}
+
+.vn-name-tag {
+    position: absolute;
+    top: -14px;
+    left: 14px;
+    font-family: 'Gaegu', sans-serif;
+    font-weight: bold;
+    font-size: 13px;
+    color: #ffffff;
+    background: linear-gradient(90deg, #e43f5a, #b8203a);
+    padding: 3px 14px;
+    border-radius: 999px;
+    box-shadow: 0 2px 6px rgba(228, 63, 90, 0.4);
+}
+
+.vn-line {
+    margin: 6px 0 0;
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: #ffffff;
+}
+
+.vn-next-hint {
+    position: absolute;
+    right: 14px;
+    bottom: 8px;
+    font-size: 11px;
+    color: #ffe600;
+    animation: vn-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes vn-blink {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
 /* ---------------- 접근성: 모션 최소화 환경 배려 ---------------- */
 @media (prefers-reduced-motion: reduce) {
     .bg-stars, .pixel-dice, .insert-coin, .floating-emoji-wrap,
     .cube, .cube-rolling, .score-pop, .bonus-celebrate,
-    .confetti-piece, .victory-banner {
+    .confetti-piece, .victory-banner, .vn-next-hint {
         animation: none !important;
         transition: none !important;
     }

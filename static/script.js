@@ -4,6 +4,17 @@ const SERVER_URL = "https://lobby-backend-ddu9.onrender.com/";
 const socket = io(SERVER_URL);
 let myCode = null;
 
+// ✅ 새로고침해도 "같은 사람"으로 인식되도록, 브라우저에 고정 식별자를 하나 저장해서 계속 씀
+function getOrCreateClientId() {
+    let id = localStorage.getItem("mp_client_id");
+    if (!id) {
+        id = (crypto.randomUUID ? crypto.randomUUID() : `c_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+        localStorage.setItem("mp_client_id", id);
+    }
+    return id;
+}
+const myClientId = getOrCreateClientId();
+
 const EMOJIS = ["👍", "😂", "🔥", "❤️", "😮", "😢"];
 
 function showAlert(message) {
@@ -14,11 +25,12 @@ function showAlert(message) {
 // ---- 방 만들기 ----
 function createRoom() {
     const name = $("#input-name").val().trim() || "GUEST";
-    socket.emit("createRoom", { name }, (res) => {
+    socket.emit("createRoom", { name, clientId: myClientId }, (res) => {
         if (!res || !res.ok) {
             showAlert(res?.message || "방 생성에 실패했습니다.");
             return;
         }
+        rememberRoom(res.code, name);
         myCode = res.code;
         currentState = res.state;
         enterRoomScreen(res.code);
@@ -35,22 +47,56 @@ function joinRoom() {
         showAlert("올바른 6자리 방 코드를 입력해주세요.");
         return;
     }
-    socket.emit("joinRoom", { code, name }, (res) => {
+    socket.emit("joinRoom", { code, name, clientId: myClientId }, (res) => {
         if (!res || !res.ok) {
             showAlert(res?.message || "방 참가에 실패했습니다.");
+            return;
+        }
+        rememberRoom(res.code, name);
+        myCode = res.code;
+        currentState = res.state;
+        enterRoomScreen(res.code);
+        showWaiting();
+        renderWaitingList(res.state);
+    });
+}
+
+// ---- 새로고침해도 안 튕기게: 방 정보를 저장해두고, 접속 시 자동으로 재접속 시도 ----
+function rememberRoom(code, name) {
+    localStorage.setItem("mp_room_code", code);
+    localStorage.setItem("mp_room_name", name);
+}
+function forgetRoom() {
+    localStorage.removeItem("mp_room_code");
+    localStorage.removeItem("mp_room_name");
+}
+
+function tryAutoRejoin() {
+    const savedCode = localStorage.getItem("mp_room_code");
+    if (!savedCode) return;
+
+    socket.emit("rejoinRoom", { code: savedCode, clientId: myClientId }, (res) => {
+        if (!res || !res.ok) {
+            forgetRoom(); // 방이 이미 사라졌거나 유예시간이 지났으면 그냥 타이틀 화면으로
             return;
         }
         myCode = res.code;
         currentState = res.state;
         enterRoomScreen(res.code);
-        showWaiting(); // 2명이 모여도 자동 시작 안 함 — 준비 버튼을 눌러야 시작됨
-        renderWaitingList(res.state);
+        if (res.state.game) {
+            showConnected();
+            renderGame(res.state);
+        } else {
+            showWaiting();
+            renderWaitingList(res.state);
+        }
     });
 }
 
 // ---- 화면 전환 ----
 function enterRoomScreen(code) {
     $("#title-screen").hide();
+    $("#secret-screen").hide();
     $("#room-screen").show();
     $("#room-code-display").text(code);
 }
@@ -71,7 +117,7 @@ function showConnected() {
 function renderWaitingList(state) {
     currentState = state;
     const players = state.players || [];
-    const me = players.find((p) => p.id === socket.id);
+    const me = players.find((p) => p.id === myClientId);
 
     if (players.length < 2) {
         $("#status-msg").text("상대방을 기다리는 중...");
@@ -82,7 +128,10 @@ function renderWaitingList(state) {
 
     $("#status-msg").text("둘 다 준비되면 게임이 시작됩니다");
     const chips = players
-        .map((p) => `<span class="player-chip ${p.ready ? "chip-ready" : ""}">${p.name} ${p.ready ? "✅" : "⏳"}</span>`)
+        .map((p) => {
+            const offline = p.connected === false ? " (재접속 대기중)" : "";
+            return `<span class="player-chip ${p.ready ? "chip-ready" : ""}">${p.name}${offline} ${p.ready ? "✅" : "⏳"}</span>`;
+        })
         .join("");
     $("#waiting-player-list").html(chips);
 
@@ -98,10 +147,11 @@ function toggleReady() {
     socket.emit("toggleReady", { code: myCode });
 }
 
-// ✅ 방을 완전히 나갈 때만 호출 (상대가 나간 것과는 별개)
+// ✅ 방을 완전히 나갈 때만 호출 (상대가 나간 것과는 별개) — 이때만 저장된 방 정보를 지움
 function leaveRoom() {
     if (myCode) socket.emit("leaveRoom", { code: myCode });
     myCode = null;
+    forgetRoom();
     $(".wrap").removeClass("in-game");
     $("#room-screen").hide();
     $("#title-screen").show();
@@ -170,9 +220,8 @@ function renderGame(state) {
     currentState = state;
     if (!state.game) return;
     const game = state.game;
-    const isMyTurn = game.turnPlayerId === socket.id;
-    const me = state.players.find((p) => p.id === socket.id);
-    const opp = state.players.find((p) => p.id !== socket.id);
+    const isMyTurn = game.turnPlayerId === myClientId;
+    const opp = state.players.find((p) => p.id !== myClientId);
 
     let turnText;
     if (game.status === "finished") {
@@ -190,12 +239,13 @@ function renderGame(state) {
     const turnNumber = game.status === "finished" ? CATEGORIES.length : Math.min(CATEGORIES.length, filledCount + 1);
     $("#turn-counter").text(`Turn ${turnNumber}/${CATEGORIES.length}`);
 
-    // 아바타: 현재 턴인 플레이어를 초록색으로 강조
+    // 아바타: 현재 턴인 플레이어를 초록색으로, 연결이 끊긴 상대는 흐리게 표시
     const $avatars = $("#player-avatars").empty();
     state.players.forEach((p) => {
         const isTurn = p.id === game.turnPlayerId && game.status !== "finished";
+        const offline = p.connected === false;
         $avatars.append(
-            `<span class="avatar ${isTurn ? "avatar-turn" : ""}" title="${p.name}">${(p.name || "?")[0]}</span>`
+            `<span class="avatar ${isTurn ? "avatar-turn" : ""} ${offline ? "avatar-offline" : ""}" title="${p.name}${offline ? " (재접속 대기중)" : ""}">${(p.name || "?")[0]}</span>`
         );
     });
 
@@ -245,11 +295,14 @@ const DIE_FACES = [
     { cls: "face-bottom", n: 4 },
 ];
 
+function cubeFacesHTML() {
+    return DIE_FACES.map((f) => `<div class="face ${f.cls}">${faceInnerHTML(f.n)}</div>`).join("");
+}
+
 function buildDieHTML(index, value, held, disabled) {
-    const facesHTML = DIE_FACES.map((f) => `<div class="face ${f.cls}">${faceInnerHTML(f.n)}</div>`).join("");
     return `
         <div class="die3d ${held ? "held" : ""} ${disabled ? "disabled" : ""}" data-index="${index}">
-            <div class="cube" style="transform:${FACE_TRANSFORM[value]}">${facesHTML}</div>
+            <div class="cube" style="transform:${FACE_TRANSFORM[value]}">${cubeFacesHTML()}</div>
         </div>
     `;
 }
@@ -266,7 +319,7 @@ function renderDice(game, isMyTurn) {
 
 function toggleHold(i) {
     const game = currentState?.game;
-    if (!game || game.turnPlayerId !== socket.id) return;
+    if (!game || game.turnPlayerId !== myClientId) return;
     if (game.rollsLeft === 3 || game.rollsLeft <= 0) return;
     socket.emit("toggleHold", { code: myCode, index: i });
 }
@@ -276,7 +329,7 @@ let pendingGameState = null;
 
 function rollDiceAction() {
     const game = currentState?.game;
-    if (!game || game.turnPlayerId !== socket.id || game.rollsLeft <= 0 || isRollingAnim) return;
+    if (!game || game.turnPlayerId !== myClientId || game.rollsLeft <= 0 || isRollingAnim) return;
     playRollAnimation(game.held);
     socket.emit("rollDice", { code: myCode });
 }
@@ -303,8 +356,8 @@ function playRollAnimation(held) {
 
 function chooseCategory(key) {
     const game = currentState?.game;
-    if (!game || game.turnPlayerId !== socket.id || game.rollsLeft === 3) return;
-    if (typeof game.scorecards[socket.id][key] === "number") return;
+    if (!game || game.turnPlayerId !== myClientId || game.rollsLeft === 3) return;
+    if (typeof game.scorecards[myClientId][key] === "number") return;
     socket.emit("chooseCategory", { code: myCode, key });
 }
 
@@ -314,8 +367,8 @@ let previousBonus = {}; // playerId -> 직전 보너스 값 (63점 돌파 순간
 
 function renderScoreGrid(state, isMyTurn) {
     const game = state.game;
-    const me = state.players.find((p) => p.id === socket.id);
-    const opp = state.players.find((p) => p.id !== socket.id);
+    const me = state.players.find((p) => p.id === myClientId);
+    const opp = state.players.find((p) => p.id !== myClientId);
     const selectable = isMyTurn && game.rollsLeft < 3 && game.status === "playing";
     const meCard = game.scorecards[me?.id] || {};
     const oppCard = opp ? game.scorecards[opp.id] || {} : null;
@@ -363,12 +416,15 @@ function renderScoreGrid(state, isMyTurn) {
     // ✅ 상단(에이스~식스) 먼저 → 그 바로 아래 보너스 칸 → 그다음 하단 항목들
     CATEGORIES.filter(({ key }) => UPPER_KEYS.includes(key)).forEach(({ key, label }) => appendCategoryRow(key, label));
 
-    $grid.append(`<div class="score-cell score-label score-row-strong">보너스(63↑)</div>`);
-    const $meBonus = $(`<div class="score-cell score-value score-row-strong"></div>`).text(`+${meTotals.bonus}`);
+    // ✅ 보너스는 "현재점수/조건점수" 형태로 표시해서 얼마나 남았는지 한눈에 보이게
+    $grid.append(`<div class="score-cell score-label score-row-strong">보너스</div>`);
+    const meBonusText = `${meTotals.upper}/63${meTotals.bonus > 0 ? " ✅" : ""}`;
+    const $meBonus = $(`<div class="score-cell score-value score-row-strong"></div>`).text(meBonusText);
     if (meTotals.bonus > 0 && (previousBonus[me?.id] ?? 0) === 0) $meBonus.addClass("bonus-celebrate");
     $grid.append($meBonus);
     if (opp) {
-        const $oppBonus = $(`<div class="score-cell score-value score-row-strong"></div>`).text(`+${oppTotals.bonus}`);
+        const oppBonusText = `${oppTotals.upper}/63${oppTotals.bonus > 0 ? " ✅" : ""}`;
+        const $oppBonus = $(`<div class="score-cell score-value score-row-strong"></div>`).text(oppBonusText);
         if (oppTotals.bonus > 0 && (previousBonus[opp.id] ?? 0) === 0) $oppBonus.addClass("bonus-celebrate");
         $grid.append($oppBonus);
     }
@@ -407,6 +463,7 @@ function animateScorePop($cell, value) {
 }
 
 let gameOverText = "";
+
 function sendEmoji(emoji) {
     if (!myCode) return;
     socket.emit("sendEmoji", { code: myCode, emoji });
@@ -454,8 +511,13 @@ function showVictoryBanner(text) {
 
 // ---- 서버 이벤트 수신 ----
 socket.on("roomUpdate", (state) => {
-    // 아직 게임 시작 전(준비 대기 중) 인원/준비 상태 갱신
-    renderWaitingList(state);
+    currentState = state;
+    // 아직 게임 시작 전(준비 대기 중)이면 대기 목록 갱신, 이미 게임 중이면(상대 재접속 등) 게임 화면 갱신
+    if (state.game) {
+        renderGame(state);
+    } else {
+        renderWaitingList(state);
+    }
 });
 
 socket.on("gameStart", (state) => {
@@ -486,7 +548,7 @@ socket.on("gameOver", ({ state, totals, winnerName }) => {
     }
 });
 
-// ✅ 상대가 나가도 나는 방에 그대로 남고, 다시 "준비" 대기 화면으로 전환
+// ✅ 상대가 (진짜로) 나가야만 이 이벤트가 옴 — 새로고침 유예 중에는 안 옴
 socket.on("opponentLeft", ({ state }) => {
     showAlert("상대방이 방을 나갔습니다. 새로운 상대를 기다립니다...");
     gameOverText = "";
@@ -495,7 +557,7 @@ socket.on("opponentLeft", ({ state }) => {
 });
 
 socket.on("emojiReceived", ({ emoji, fromId, fromName }) => {
-    const isMine = fromId === socket.id;
+    const isMine = fromId === myClientId;
     spawnFloatingEmoji(emoji, isMine ? "나" : fromName, isMine);
 });
 
@@ -503,21 +565,34 @@ socket.on("connect_error", () => {
     showAlert("서버에 연결할 수 없습니다. SERVER_URL을 확인해주세요.");
 });
 
-// ---- 타이틀 주사위 이스터에그 ----
+// ✅ 접속(또는 재접속)될 때마다 저장된 방이 있으면 자동으로 복귀 시도
+socket.on("connect", () => {
+    tryAutoRejoin();
+});
+
+// ---- 타이틀 화면 3D 다이스 (인게임과 동일한 큐브 재사용) ----
 let diceClickCount = 0;
 
-function handleDiceClick() {
+function buildTitleDie() {
+    $("#title-die").html(`<div class="cube" style="transform:${FACE_TRANSFORM[5]}">${cubeFacesHTML()}</div>`);
+}
+
+function rollTitleDie() {
     diceClickCount += 1;
 
-    const $dice = $(".pixel-dice");
-    $dice.removeClass("dice-clicked");
-    // 강제 리플로우로 애니메이션을 매번 처음부터 재생되게 함
-    void $dice[0].offsetWidth;
-    $dice.addClass("dice-clicked");
+    const $cube = $("#title-die .cube");
+    $cube.addClass("cube-rolling");
+    setTimeout(() => {
+        $cube.removeClass("cube-rolling");
+        const value = 1 + Math.floor(Math.random() * 6);
+        $cube.css("transform", FACE_TRANSFORM[value]);
+    }, 650);
 
     if (diceClickCount >= 10) {
         $("#title-screen").hide();
         $("#secret-screen").show();
+        vnIndex = 0;
+        renderVnStep(vnIndex);
     }
 }
 
@@ -525,6 +600,63 @@ function backToTitleFromSecret() {
     diceClickCount = 0;
     $("#secret-screen").hide();
     $("#title-screen").show();
+}
+
+// ---- 미연시(비주얼 노벨) 기본 뼈대 ----
+// 이미지는 나중에 static/vn/backgrounds, static/vn/characters 안에 직접 넣고
+// 아래 경로(background, character)만 실제 파일명으로 바꾸면 바로 반영됩니다.
+// 이미지가 아직 없으면 자동으로 점선 플레이스홀더가 대신 표시됩니다.
+const VN_SCRIPT = [
+    {
+        background: "/static/vn/backgrounds/sample_bg.jpg",
+        character: "/static/vn/characters/sample_char.png",
+        name: "???",
+        line: "이곳에 첫 번째 대사를 적어주세요.",
+    },
+    {
+        background: "/static/vn/backgrounds/sample_bg.jpg",
+        character: "/static/vn/characters/sample_char.png",
+        name: "???",
+        line: "이미지는 static/vn 폴더에 넣고, 이 배열(VN_SCRIPT)의 경로/이름/대사만 자유롭게 바꾸면 됩니다.",
+    },
+];
+
+let vnIndex = 0;
+
+// src가 정상적으로 로드되면 이미지를 보여주고, 없거나 실패하면 플레이스홀더를 계속 보여줌
+function setVnImage($img, $placeholder, src) {
+    if (!src) {
+        $img.hide();
+        $placeholder.show();
+        return;
+    }
+    $img
+        .off("load error")
+        .on("load", () => {
+            $placeholder.hide();
+            $img.show();
+        })
+        .on("error", () => {
+            $img.hide();
+            $placeholder.show();
+        })
+        .attr("src", src);
+}
+
+function renderVnStep(i) {
+    const step = VN_SCRIPT[i];
+    if (!step) return;
+    setVnImage($("#vn-background"), $("#vn-bg-placeholder"), step.background);
+    setVnImage($("#vn-character"), $("#vn-char-placeholder"), step.character);
+    $("#vn-name").text(step.name || "");
+    $("#vn-line").text(step.line || "");
+    $("#vn-next-hint").text(i >= VN_SCRIPT.length - 1 ? "처음으로 ▸" : "다음 ▸");
+}
+
+function vnNext() {
+    vnIndex += 1;
+    if (vnIndex >= VN_SCRIPT.length) vnIndex = 0; // 마지막 대사 다음엔 처음으로 (나중에 원하는 흐름으로 바꾸면 됨)
+    renderVnStep(vnIndex);
 }
 
 // ✅ ESC는 실제 게임 화면(connected-area)에 있을 때만 나가기로 동작
@@ -536,6 +668,8 @@ $(document).on("keydown", (e) => {
 
 // ---- 버튼 이벤트 바인딩 ----
 $(function () {
+    buildTitleDie();
+
     $("#btn-create").on("click", createRoom);
     $("#btn-show-join").on("click", () => $("#join-area").slideToggle(150));
     $("#btn-join").on("click", joinRoom);
@@ -544,7 +678,13 @@ $(function () {
     $("#btn-roll").on("click", rollDiceAction);
     $("#btn-ready").on("click", toggleReady);
     $("#btn-secret-back").on("click", backToTitleFromSecret);
-    $(".pixel-dice").on("click", handleDiceClick);
+    $("#vn-textbox").on("click", vnNext);
+
+    // ✅ 다이스 아이콘뿐 아니라 타이틀 화면 배경 어디를 클릭해도 굴러가게 (버튼/입력창은 제외)
+    $("#title-screen").on("click", (e) => {
+        if ($(e.target).closest("button, input").length) return;
+        rollTitleDie();
+    });
 
     // 이모티콘 버튼 동적 생성
     const $bar = $("#emoji-bar");
