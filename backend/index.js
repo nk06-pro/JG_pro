@@ -4,7 +4,9 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 
-const { scoreFor, computeTotals, isScorecardFull, emptyScorecard, rollDice } = require("./gameLogic");
+const { scoreFor, computeTotals, isScorecardFull, emptyScorecard, rollDice, CATEGORIES } = require("./gameLogic");
+const VALID_CATEGORY_KEYS = new Set(CATEGORIES.map((c) => c.key));
+const ALLOWED_EMOJIS = new Set(["👍", "😂", "🔥", "❤️", "😮", "😢"]);
 
 const PORT = process.env.PORT || 4000;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
@@ -91,6 +93,11 @@ io.on("connection", (socket) => {
   // 방 생성
   socket.on("createRoom", ({ name, clientId }, callback) => {
     if (!clientId) return callback?.({ ok: false, message: "클라이언트 식별자가 없습니다." });
+    const now = Date.now();
+    if (socket.data.lastCreateAt && now - socket.data.lastCreateAt < 2000) {
+      return callback?.({ ok: false, message: "너무 빠르게 요청하고 있어요. 잠시 후 다시 시도해주세요." });
+    }
+    socket.data.lastCreateAt = now;
     if (rooms.size >= MAX_ROOMS) {
       return callback?.({ ok: false, message: "지금 사람이 몰려서 방을 더 만들 수 없어요. 잠시 후 다시 시도해주세요." });
     }
@@ -188,6 +195,7 @@ io.on("connection", (socket) => {
     const room = rooms.get(code);
     if (!room?.game || room.game.status !== "playing" || !clientId) return;
     if (!isTurnOwner(room, clientId)) return;
+    if (!Number.isInteger(index) || index < 0 || index > 4) return; // ✅ 다이스는 5개(0~4)뿐
     if (room.game.rollsLeft === 3 || room.game.rollsLeft <= 0) return; // 최소 1번은 굴려야 홀드 가능
     room.game.held[index] = !room.game.held[index];
     io.to(code).emit("stateUpdate", publicState(room));
@@ -199,6 +207,7 @@ io.on("connection", (socket) => {
     const room = rooms.get(code);
     if (!room?.game || room.game.status !== "playing" || !clientId) return;
     if (!isTurnOwner(room, clientId) || room.game.rollsLeft === 3) return;
+    if (!VALID_CATEGORY_KEYS.has(key)) return; // ✅ 정해진 12개 카테고리 외의 값은 무시
     if (typeof room.game.scorecards[clientId][key] === "number") return; // 이미 사용한 칸
 
     room.game.scorecards[clientId][key] = scoreFor(key, room.game.dice);
@@ -219,7 +228,10 @@ io.on("connection", (socket) => {
   socket.on("sendEmoji", ({ code, emoji }) => {
     const clientId = socket.data.clientId;
     const room = rooms.get(code);
-    if (!room) return;
+    if (!room || !ALLOWED_EMOJIS.has(emoji)) return; // ✅ 정해진 6개 이모티콘 외에는 무시
+    const now = Date.now();
+    if (socket.data.lastEmojiAt && now - socket.data.lastEmojiAt < 400) return; // ✅ 너무 빠른 연타 도배 방지
+    socket.data.lastEmojiAt = now;
     const sender = room.players.find((p) => p.clientId === clientId);
     io.to(code).emit("emojiReceived", { emoji, fromId: clientId, fromName: sender?.name || "?" });
   });

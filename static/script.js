@@ -65,6 +65,18 @@ function playDiceSfx() {
 
 const EMOJIS = ["👍", "😂", "🔥", "❤️", "😮", "😢"];
 
+// ✅ 닉네임/이모티콘처럼 서버(또는 다른 사람)에게서 받은 텍스트를 HTML에 꽂을 때는
+// 반드시 이걸 거쳐서 <script> 같은 태그가 그대로 실행되지 않게 함 (XSS 방지)
+function escapeHtml(str) {
+    return String(str ?? "").replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+    }[ch]));
+}
+
 function showAlert(message) {
     $("#alert-box").text(message).show();
     setTimeout(() => $("#alert-box").hide(), 3000);
@@ -178,7 +190,7 @@ function renderWaitingList(state) {
     const chips = players
         .map((p) => {
             const offline = p.connected === false ? " (재접속 대기중)" : "";
-            return `<span class="player-chip ${p.ready ? "chip-ready" : ""}">${p.name}${offline} ${p.ready ? "✅" : "⏳"}</span>`;
+            return `<span class="player-chip ${p.ready ? "chip-ready" : ""}">${escapeHtml(p.name)}${offline} ${p.ready ? "✅" : "⏳"}</span>`;
         })
         .join("");
     $("#waiting-player-list").html(chips);
@@ -277,7 +289,7 @@ function renderGame(state) {
     } else {
         turnText = isMyTurn
             ? `🎯 내 차례 · 굴림 ${game.rollsLeft}/3 남음`
-            : `${opp?.name ?? "상대"}의 차례를 기다리는 중`;
+            : `${escapeHtml(opp?.name) || "상대"}의 차례를 기다리는 중`;
     }
     $("#turn-indicator").html(turnText);
 
@@ -293,7 +305,7 @@ function renderGame(state) {
         const isTurn = p.id === game.turnPlayerId && game.status !== "finished";
         const offline = p.connected === false;
         $avatars.append(
-            `<span class="avatar ${isTurn ? "avatar-turn" : ""} ${offline ? "avatar-offline" : ""}" title="${p.name}${offline ? " (재접속 대기중)" : ""}">${(p.name || "?")[0]}</span>`
+            `<span class="avatar ${isTurn ? "avatar-turn" : ""} ${offline ? "avatar-offline" : ""}" title="${escapeHtml(p.name)}${offline ? " (재접속 대기중)" : ""}">${escapeHtml((p.name || "?")[0])}</span>`
         );
     });
 
@@ -425,8 +437,8 @@ function renderScoreGrid(state, isMyTurn) {
     const $grid = $("#score-grid").empty();
 
     $grid.append(`<div class="score-cell score-head"></div>`);
-    $grid.append(`<div class="score-cell score-head">${me ? me.name + " (나)" : "나"}</div>`);
-    if (opp) $grid.append(`<div class="score-cell score-head">${opp.name}</div>`);
+    $grid.append(`<div class="score-cell score-head">${me ? escapeHtml(me.name) + " (나)" : "나"}</div>`);
+    if (opp) $grid.append(`<div class="score-cell score-head">${escapeHtml(opp.name)}</div>`);
 
     const prevMe = previousScorecards[me?.id];
     const prevOpp = opp ? previousScorecards[opp.id] : null;
@@ -522,8 +534,8 @@ function sendEmoji(emoji) {
 function spawnFloatingEmoji(emoji, name, isMine) {
     const $wrap = $(`
         <div class="floating-emoji-wrap ${isMine ? "mine" : "theirs"}">
-            <span class="floating-emoji">${emoji}</span>
-            <span class="emoji-name">${name}</span>
+            <span class="floating-emoji">${escapeHtml(emoji)}</span>
+            <span class="emoji-name">${escapeHtml(name)}</span>
         </div>
     `);
     // 내가 보낸 건 왼쪽 영역, 상대가 보낸 건 오른쪽 영역에서 떠오르게
@@ -583,15 +595,16 @@ socket.on("stateUpdate", (state) => {
 });
 
 socket.on("gameOver", ({ state, totals, winnerName }) => {
-    const scoreLine = totals.map((t) => `${t.name}: ${t.total}점`).join(" · ");
+    const scoreLine = totals.map((t) => `${escapeHtml(t.name)}: ${t.total}점`).join(" · ");
+    const safeWinnerName = escapeHtml(winnerName);
     gameOverText = winnerName
-        ? `🎉 ${winnerName} 승리! (${scoreLine})`
+        ? `🎉 ${safeWinnerName} 승리! (${scoreLine})`
         : `무승부! (${scoreLine})`;
     renderGame(state);
 
     if (winnerName) {
         playConfetti();
-        showVictoryBanner(`🎉 ${winnerName} 승리!`);
+        showVictoryBanner(`🎉 ${safeWinnerName} 승리!`);
     } else {
         showVictoryBanner(`🤝 무승부!`);
     }
