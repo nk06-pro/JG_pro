@@ -65,10 +65,17 @@ body::before {
         to bottom,
         rgba(0, 0, 0, 0) 0px,
         rgba(0, 0, 0, 0) 2px,
-        rgba(0, 0, 0, 0.08) 3px
+        rgba(0, 0, 0, 0.05) 3px
     );
-    mix-blend-mode: overlay;
-    opacity: 0.5;
+    /* ⚠️ mix-blend-mode는 화면 아래 모든 애니메이션과 매 프레임 다시 섞어 계산해야 해서
+       렉의 큰 원인이었음 — 제거하고 rgba 알파값만으로 비슷한 느낌을 냄 */
+}
+
+/* 특히 모바일에서 체감 렉이 크므로 좁은 화면에서는 장식 효과를 아예 끔 */
+@media (max-width: 600px) {
+    .bg-scanlines {
+        display: none;
+    }
 }
 
 .wrap {
