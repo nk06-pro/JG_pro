@@ -473,9 +473,9 @@ function renderScoreGrid(state, isMyTurn) {
     function appendCategoryRow(key, label) {
         $grid.append(`<div class="score-cell score-label">${label}</div>`);
 
-        // 내 칸
+        // 내 칸 — ✅ 미리보기는 "내 차례일 때"만 (상대 턴일 때는 아무 영향 안 주게)
         const filled = typeof meCard[key] === "number";
-        const preview = !filled && game.dice ? scoreForClient(key, game.dice) : null;
+        const preview = !filled && isMyTurn && game.dice ? scoreForClient(key, game.dice) : null;
         const $meCell = $(`<div class="score-cell score-value"></div>`);
         if (selectable && !filled) {
             $meCell.addClass("score-selectable").on("click", () => chooseCategory(key));
