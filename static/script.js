@@ -207,6 +207,11 @@ function toggleReady() {
     socket.emit("toggleReady", { code: myCode });
 }
 
+function requestRematch() {
+    if (!myCode) return;
+    socket.emit("requestRematch", { code: myCode });
+}
+
 // ✅ 방을 완전히 나갈 때만 호출 (상대가 나간 것과는 별개) — 이때만 저장된 방 정보를 지움
 function leaveRoom() {
     if (myCode) socket.emit("leaveRoom", { code: myCode });
@@ -314,6 +319,28 @@ function renderGame(state) {
     $("#btn-roll")
         .text(`🎲 굴리기 (${game.rollsLeft}/3)`)
         .prop("disabled", !isMyTurn || game.rollsLeft <= 0 || game.status === "finished");
+
+    // 다시 하기: 게임이 끝났을 때만 노출, 양쪽 다 눌러야 새 판이 시작됨
+    const $rematchBtn = $("#btn-rematch");
+    if (game.status === "finished") {
+        const me = state.players.find((p) => p.id === myClientId);
+        const iAmRematchReady = !!me?.rematchReady;
+        const oppRematchReady = !!opp?.rematchReady;
+        $rematchBtn
+            .show()
+            .toggleClass("is-ready", iAmRematchReady)
+            .text(
+                iAmRematchReady
+                    ? oppRematchReady
+                        ? "🔁 다시 시작하는 중..."
+                        : "✅ 대기 중 (상대 응답 기다림)"
+                    : "🔁 다시 하기"
+            );
+        $("#btn-roll").hide();
+    } else {
+        $rematchBtn.hide().removeClass("is-ready");
+        $("#btn-roll").show();
+    }
 
     renderScoreGrid(state, isMyTurn);
 }
@@ -582,6 +609,7 @@ socket.on("roomUpdate", (state) => {
 });
 
 socket.on("gameStart", (state) => {
+    gameOverText = ""; // 다시 하기로 새 판이 시작된 경우, 이전 결과 문구가 안 남아있게
     showConnected();
     renderGame(state);
 });
@@ -740,6 +768,7 @@ $(function () {
     $("#btn-leave-game").on("click", leaveRoom); // 인게임: 작은 X 버튼
     $("#btn-roll").on("click", rollDiceAction);
     $("#btn-ready").on("click", toggleReady);
+    $("#btn-rematch").on("click", requestRematch);
     $("#btn-secret-back").on("click", backToTitleFromSecret);
     $("#vn-textbox").on("click", vnNext);
     $("#btn-mute").on("click", (e) => {

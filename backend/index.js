@@ -3,29 +3,29 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
- 
+
 const { scoreFor, computeTotals, isScorecardFull, emptyScorecard, rollDice, CATEGORIES } = require("./gameLogic");
 const VALID_CATEGORY_KEYS = new Set(CATEGORIES.map((c) => c.key));
 const ALLOWED_EMOJIS = new Set(["👍", "😂", "🔥", "❤️", "😮", "😢"]);
- 
+
 const PORT = process.env.PORT || 4000;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
- 
+
 const app = express();
 app.use(cors({ origin: CLIENT_ORIGIN }));
 app.get("/", (_req, res) => res.send("Lobby + Yacht server OK")); // 헬스체크용
- 
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: CLIENT_ORIGIN, methods: ["GET", "POST"] },
 });
- 
+
 // 방 상태: code -> { players:[{clientId, socketId, name, ready, disconnectTimer}], game: {...} | null }
 // ✅ 플레이어 식별은 socket.id(새로고침마다 바뀜)가 아니라 브라우저에 저장된 clientId(고정값)로 함
 const rooms = new Map();
 const MAX_ROOMS = 300; // 동시 활성 방 상한선 (서버 자원 보호용 안전장치)
 const RECONNECT_GRACE_MS = 60000; // 새로고침/일시 연결 끊김 시 이 시간 안에 돌아오면 방에서 안 쫓겨남
- 
+
 function makeRoomCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 헷갈리는 글자(0,O,1,I) 제외
   let code;
@@ -34,7 +34,7 @@ function makeRoomCode() {
   } while (rooms.has(code));
   return code;
 }
- 
+
 function freshGame(players) {
   const scorecards = {};
   players.forEach((p) => (scorecards[p.clientId] = emptyScorecard()));
@@ -47,7 +47,7 @@ function freshGame(players) {
     status: "playing", // playing | finished
   };
 }
- 
+
 function publicState(room) {
   return {
     code: room.code,
@@ -70,11 +70,11 @@ function publicState(room) {
       : null,
   };
 }
- 
+
 function isTurnOwner(room, clientId) {
   return room.game && room.players[room.game.turnIndex]?.clientId === clientId;
 }
- 
+
 function finishGame(room) {
   room.game.status = "finished";
   const totals = room.players.map((p) => ({
@@ -87,10 +87,10 @@ function finishGame(room) {
   }
   io.to(room.code).emit("gameOver", { state: publicState(room), totals, winnerName });
 }
- 
+
 io.on("connection", (socket) => {
   console.log(`유저 접속: ${socket.id}`);
- 
+
   // 방 생성
   socket.on("createRoom", ({ name, clientId }, callback) => {
     if (!clientId) return callback?.({ ok: false, message: "클라이언트 식별자가 없습니다." });
@@ -111,30 +111,30 @@ io.on("connection", (socket) => {
     callback?.({ ok: true, code, state: publicState(room) });
     console.log(`방 생성: ${code} (현재 ${rooms.size}/${MAX_ROOMS})`);
   });
- 
+
   // 방 참가 — 이미 그 방에 있던 clientId면(새로고침 등) 자동으로 재접속 처리
   socket.on("joinRoom", ({ code, name, clientId }, callback) => {
     if (!clientId) return callback?.({ ok: false, message: "클라이언트 식별자가 없습니다." });
     const room = rooms.get(code);
     if (!room) return callback?.({ ok: false, message: "존재하지 않는 방입니다." });
- 
+
     const existing = room.players.find((p) => p.clientId === clientId);
     if (existing) return doRejoin(socket, room, existing, callback);
- 
+
     if (room.players.length >= 2) return callback?.({ ok: false, message: "방이 가득 찼습니다." });
- 
+
     const player = { clientId, socketId: socket.id, name: (name || "P2").slice(0, 8), ready: false, rematchReady: false, disconnectTimer: null };
     room.players.push(player);
     room.players.forEach((p) => (p.ready = false)); // 구성원이 바뀌었으니 준비 상태 초기화
     room.game = null;
     socket.data.clientId = clientId;
     socket.join(code);
- 
+
     callback?.({ ok: true, code, state: publicState(room) });
     socket.to(code).emit("roomUpdate", publicState(room)); // 이미 있던 사람에게도 갱신된 인원 알림
     console.log(`방 참가: ${code}`);
   });
- 
+
   // ✅ 새로고침 등으로 소켓이 바뀐 뒤, 원래 있던 방에 자동으로 다시 연결
   socket.on("rejoinRoom", ({ code, clientId }, callback) => {
     const room = rooms.get(code);
@@ -143,7 +143,7 @@ io.on("connection", (socket) => {
     if (!player) return callback?.({ ok: false });
     doRejoin(socket, room, player, callback);
   });
- 
+
   function doRejoin(socket, room, player, callback) {
     if (player.disconnectTimer) {
       clearTimeout(player.disconnectTimer);
@@ -157,7 +157,7 @@ io.on("connection", (socket) => {
     if (room.game) socket.to(room.code).emit("stateUpdate", publicState(room));
     console.log(`재접속: ${room.code} (${player.name})`);
   }
- 
+
   // 준비 완료 토글 — 둘 다 준비되면 그때 게임 시작
   socket.on("toggleReady", ({ code }) => {
     const clientId = socket.data.clientId;
@@ -165,9 +165,9 @@ io.on("connection", (socket) => {
     if (!room || !clientId) return;
     const player = room.players.find((p) => p.clientId === clientId);
     if (!player) return;
- 
+
     player.ready = !player.ready;
- 
+
     const allReady = room.players.length === 2 && room.players.every((p) => p.ready);
     if (allReady) {
       room.game = freshGame(room.players);
@@ -177,7 +177,7 @@ io.on("connection", (socket) => {
       io.to(code).emit("roomUpdate", publicState(room));
     }
   });
- 
+
   // 다시 하기 — 게임이 끝난 뒤, 둘 다 눌러야 새 판이 시작됨 (한쪽 마음대로 재시작 못 하게)
   socket.on("requestRematch", ({ code }) => {
     const clientId = socket.data.clientId;
@@ -185,9 +185,9 @@ io.on("connection", (socket) => {
     if (!room || !clientId || !room.game || room.game.status !== "finished") return;
     const player = room.players.find((p) => p.clientId === clientId);
     if (!player) return;
- 
+
     player.rematchReady = !player.rematchReady;
- 
+
     const bothRematchReady = room.players.length === 2 && room.players.every((p) => p.rematchReady);
     if (bothRematchReady) {
       room.game = freshGame(room.players);
@@ -197,20 +197,20 @@ io.on("connection", (socket) => {
       io.to(code).emit("stateUpdate", publicState(room));
     }
   });
- 
+
   // 주사위 굴리기
   socket.on("rollDice", ({ code }) => {
     const clientId = socket.data.clientId;
     const room = rooms.get(code);
     if (!room?.game || room.game.status !== "playing" || !clientId) return;
     if (!isTurnOwner(room, clientId) || room.game.rollsLeft <= 0) return;
- 
+
     const fresh = rollDice(5);
     room.game.dice = room.game.dice.map((v, i) => (room.game.held[i] ? v : fresh[i]));
     room.game.rollsLeft -= 1;
     io.to(code).emit("stateUpdate", publicState(room));
   });
- 
+
   // 주사위 홀드 토글
   socket.on("toggleHold", ({ code, index }) => {
     const clientId = socket.data.clientId;
@@ -222,7 +222,7 @@ io.on("connection", (socket) => {
     room.game.held[index] = !room.game.held[index];
     io.to(code).emit("stateUpdate", publicState(room));
   });
- 
+
   // 카테고리 선택(점수 기록) + 턴 넘기기
   socket.on("chooseCategory", ({ code, key }) => {
     const clientId = socket.data.clientId;
@@ -231,12 +231,12 @@ io.on("connection", (socket) => {
     if (!isTurnOwner(room, clientId) || room.game.rollsLeft === 3) return;
     if (!VALID_CATEGORY_KEYS.has(key)) return; // ✅ 정해진 12개 카테고리 외의 값은 무시
     if (typeof room.game.scorecards[clientId][key] === "number") return; // 이미 사용한 칸
- 
+
     room.game.scorecards[clientId][key] = scoreFor(key, room.game.dice);
     room.game.dice = [6, 6, 6, 6, 6];
     room.game.held = [false, false, false, false, false];
     room.game.rollsLeft = 3;
- 
+
     const bothFull = room.players.every((p) => isScorecardFull(room.game.scorecards[p.clientId]));
     if (bothFull) {
       finishGame(room);
@@ -245,7 +245,7 @@ io.on("connection", (socket) => {
     room.game.turnIndex = (room.game.turnIndex + 1) % room.players.length;
     io.to(code).emit("stateUpdate", publicState(room));
   });
- 
+
   // 이모티콘 리액션
   socket.on("sendEmoji", ({ code, emoji }) => {
     const clientId = socket.data.clientId;
@@ -257,14 +257,14 @@ io.on("connection", (socket) => {
     const sender = room.players.find((p) => p.clientId === clientId);
     io.to(code).emit("emojiReceived", { emoji, fromId: clientId, fromName: sender?.name || "?" });
   });
- 
+
   // 진짜로 나가기 버튼을 눌렀을 때 — 유예 없이 바로 방에서 제거
   socket.on("leaveRoom", ({ code }) => {
     const clientId = socket.data.clientId;
     if (clientId) removePlayer(code, clientId);
     socket.leave(code);
   });
- 
+
   // ✅ 연결이 끊겨도(새로고침 포함) 바로 방에서 빼지 않고, 유예시간 동안 기다렸다가 없으면 그때 제거
   socket.on("disconnect", () => {
     console.log("유저 연결 해제:", socket.id);
@@ -278,7 +278,7 @@ io.on("connection", (socket) => {
       }
     }
   });
- 
+
   // 한 명이 (진짜로) 나가면 방에서 제거 — 즉시 나가기 또는 재접속 유예시간 초과 시 호출됨
   function removePlayer(code, clientId) {
     const room = rooms.get(code);
@@ -286,11 +286,11 @@ io.on("connection", (socket) => {
     const player = room.players.find((p) => p.clientId === clientId);
     if (!player) return;
     if (player.disconnectTimer) clearTimeout(player.disconnectTimer);
- 
+
     room.players = room.players.filter((p) => p.clientId !== clientId);
     room.players.forEach((p) => (p.ready = false)); // 새 상대가 들어오면 다시 준비해야 함
     room.game = null; // 혼자 남았으니 진행 중이던 게임은 리셋
- 
+
     if (room.players.length === 0) {
       rooms.delete(code);
       console.log(`방 정리(빈 방): ${code}`);
@@ -299,7 +299,7 @@ io.on("connection", (socket) => {
     io.to(code).emit("opponentLeft", { state: publicState(room) });
   }
 });
- 
+
 server.listen(PORT, () => {
   console.log(`서버가 ${PORT}번 포트에서 실행 중입니다.`);
 });
